@@ -48,69 +48,91 @@ const Dashboard = () => {
     }, [search]);
 
     return (
-        // 1. Unified Gradient Background for the ENTIRE page
         <div className='min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200'>
             
-            {/* Header Content */}
-            <div className="relative pt-12 pb-12 px-4 md:px-8">
-                <div className="relative max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center mb-12">
-                    <div className="mb-8 md:mb-0 text-center md:text-left">
-                        <h1 className='text-5xl md:text-6xl font-black tracking-tight mb-2 text-white drop-shadow-lg'>
-                            CrickJudge
-                        </h1>
-                        <p className='text-blue-200 text-lg md:text-xl font-light tracking-wide'>
-                            Advanced Team Selector & Analytics
-                        </p>
-                    </div>
-                    
-                    <div className='flex flex-col sm:flex-row gap-4'>
-                         <button 
-                            onClick={scrapeData} 
-                            disabled={loading}
-                            className='group relative px-6 py-3 font-bold text-white transition-all duration-200 bg-white/10 border border-white/10 rounded-full hover:bg-white/20 backdrop-blur-md'
-                        >
-                            {loading ? 'Syncing...' : 'Refresh Data'}
-                        </button>
+            {/* NEW: Modern Glass Navbar */}
+            <nav className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-lg border-b border-white/10 shadow-lg">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex items-center justify-between h-20">
+                        
+                        {/* Logo Section */}
+                        <div className="flex-shrink-0 flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-bold text-white tracking-tight">CrickJudge</h1>
+                                <p className="text-xs text-blue-300 font-medium tracking-wide">ANALYTICS ENGINE</p>
+                            </div>
+                        </div>
 
-                        <button 
-                            onClick={generateTeam} 
-                            className='px-8 py-3 font-bold text-white transition-all duration-200 bg-blue-600 rounded-full shadow-lg hover:bg-blue-500 hover:shadow-blue-500/50'
-                        >
-                            Generate Best XI
-                        </button>
+                        {/* Center: Integrated Search Bar */}
+                        <div className="hidden md:block flex-1 max-w-xl mx-8">
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg className="h-5 w-5 text-slate-400 group-focus-within:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+                                <input
+                                    type="text"
+                                    className="block w-full pl-10 pr-3 py-2.5 border border-slate-700 rounded-lg leading-5 bg-slate-800/50 text-slate-300 placeholder-slate-500 focus:outline-none focus:bg-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:text-sm transition-all duration-200"
+                                    placeholder="Search players, roles, or countries..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Right: Action Buttons */}
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={scrapeData}
+                                disabled={loading}
+                                className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                title="Refresh Database"
+                            >
+                                <svg className={`w-6 h-6 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            </button>
+                            
+                            <button 
+                                onClick={generateTeam}
+                                className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-lg shadow-lg shadow-blue-900/20 transition-all transform hover:scale-105 active:scale-95"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                                Generate Best XI
+                            </button>
+                        </div>
                     </div>
                 </div>
+            </nav>
 
-                {/* Search Bar - Floating Glass Effect */}
-                <div className="bg-white/5 backdrop-blur-md rounded-2xl shadow-2xl p-2 mb-12 flex items-center max-w-3xl mx-auto border border-white/10">
-                    <div className="pl-4 text-slate-400">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    </div>
-                    <input 
-                        type='text' 
-                        placeholder='Search players by name, role, or country...' 
-                        className='w-full p-4 text-lg bg-transparent border-none focus:ring-0 text-white placeholder-slate-400 outline-none'
+            {/* Main Content Area */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                
+                {/* Mobile Search (Visible only on small screens) */}
+                <div className="md:hidden mb-8">
+                    <input
+                        type="text"
+                        className="block w-full px-4 py-3 border border-slate-700 rounded-xl bg-slate-800/50 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                        placeholder="Search players..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
-            </div>
 
-            <div className="max-w-7xl mx-auto px-4 md:px-8 pb-20">
                 {/* Best XI Section */}
                 {team.length > 0 && (
-                    <section className='mb-16 animate-fade-in-up'>
-                        <div className='flex items-center justify-between mb-8'>
-                            <h2 className='text-3xl font-bold text-white flex items-center gap-3'>
-                                <span className="text-yellow-400 text-2xl">🏆</span>
+                    <section className='mb-12 animate-fade-in-up'>
+                        <div className='flex items-center justify-between mb-6'>
+                            <h2 className='text-2xl font-bold text-white flex items-center gap-3'>
+                                <span className="text-yellow-400">🏆</span>
                                 Dream Team XI
                             </h2>
-                            <button onClick={() => setTeam([])} className='text-slate-400 hover:text-red-400 text-sm font-medium transition-colors'>
+                            <button onClick={() => setTeam([])} className='text-sm text-slate-400 hover:text-red-400 transition-colors'>
                                 Clear Selection
                             </button>
                         </div>
                         
-                        <div className='bg-white/5 p-8 rounded-3xl border border-white/10 shadow-xl backdrop-blur-sm'>
+                        <div className='bg-white/5 p-6 rounded-3xl border border-white/10 shadow-xl backdrop-blur-sm'>
                             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
                                 {team.map((p, index) => (
                                     <div key={p._id} className='relative group'>
@@ -127,16 +149,16 @@ const Dashboard = () => {
 
                 {/* Database Section */}
                 <section>
-                    <div className='flex items-center justify-between mb-8'>
-                        <h2 className='text-2xl font-bold text-white'>
+                    <div className='flex items-center justify-between mb-6'>
+                        <h2 className='text-xl font-bold text-white flex items-center gap-2'>
                             Player Database
-                            <span className='ml-3 text-sm font-normal text-slate-300 bg-white/10 border border-white/5 px-3 py-1 rounded-full'>{players.length} Players</span>
+                            <span className='text-xs font-normal text-slate-400 bg-slate-800 px-2 py-1 rounded-md border border-slate-700'>{players.length}</span>
                         </h2>
                     </div>
 
                     {players.length === 0 ? (
                         <div className='text-center py-32 bg-white/5 rounded-3xl border-2 border-dashed border-white/10'>
-                            <p className='text-slate-400 text-xl font-medium'>No players found.</p>
+                            <p className='text-slate-400 text-lg'>No players found matching your search.</p>
                         </div>
                     ) : (
                         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'>
