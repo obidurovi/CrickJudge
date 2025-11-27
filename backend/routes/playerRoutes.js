@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { getPlayers, triggerScrape, generateTeam } = require('../controllers/playerController');
+const { getPlayers, refreshPlayers } = require('../controllers/playerController');
 
+// Get all players
 router.get('/', getPlayers);
-router.post('/scrape', triggerScrape);
-router.get('/generate-team', generateTeam);
+
+// Refresh players database (Optional manual trigger)
+router.post('/refresh', refreshPlayers);
 
 module.exports = router;
