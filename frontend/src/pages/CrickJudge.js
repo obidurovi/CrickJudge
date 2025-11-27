@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
-// --- Custom Dropdown Component ---
+// --- Advanced Searchable Dropdown ---
 const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
     const dropdownRef = useRef(null);
+    const searchInputRef = useRef(null);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -18,76 +20,140 @@ const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    // Focus search input when opened
+    useEffect(() => {
+        if (isOpen && searchInputRef.current) {
+            searchInputRef.current.focus();
+        }
+        if (!isOpen) {
+            setSearchTerm(''); // Reset search on close
+        }
+    }, [isOpen]);
+
     const selectedPlayer = players.find(p => p._id === selectedId);
+    const filteredPlayers = players.filter(p => 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        p.role.toLowerCase().includes(searchTerm.toLowerCase())
+    );
     
-    // Dynamic styles based on color prop
+    // Theme Configuration
     const theme = {
         blue: {
             label: 'text-blue-400',
-            ring: 'focus:ring-blue-500',
+            borderFocus: 'focus:ring-blue-500 border-blue-500/50',
             icon: 'text-blue-500',
-            hover: 'hover:bg-blue-600',
-            selectedBg: 'bg-blue-500/20'
+            itemHover: 'hover:bg-blue-600/20 hover:border-blue-500/30',
+            itemSelected: 'bg-blue-600/20 border-blue-500/50',
+            avatar: 'from-blue-500 to-cyan-500'
         },
         purple: {
             label: 'text-purple-400',
-            ring: 'focus:ring-purple-500',
+            borderFocus: 'focus:ring-purple-500 border-purple-500/50',
             icon: 'text-purple-500',
-            hover: 'hover:bg-purple-600',
-            selectedBg: 'bg-purple-500/20'
+            itemHover: 'hover:bg-purple-600/20 hover:border-purple-500/30',
+            itemSelected: 'bg-purple-600/20 border-purple-500/50',
+            avatar: 'from-purple-500 to-pink-500'
         }
     }[color];
 
     return (
-        <div className="relative" ref={dropdownRef}>
-            <label className={`block ${theme.label} text-sm font-bold mb-3 uppercase tracking-wider`}>
+        <div className="relative w-full" ref={dropdownRef}>
+            <label className={`block ${theme.label} text-xs font-bold mb-2 uppercase tracking-widest`}>
                 {label}
             </label>
             
+            {/* Trigger Button */}
             <button 
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl py-3 pl-4 pr-10 text-left focus:outline-none focus:ring-2 ${theme.ring} transition-all flex items-center justify-between group hover:bg-slate-800/80 shadow-sm`}
+                className={`w-full bg-slate-900/60 backdrop-blur-sm border border-slate-700 text-white rounded-xl py-3 pl-3 pr-10 text-left focus:outline-none focus:ring-2 ${theme.borderFocus} transition-all duration-200 flex items-center gap-3 group hover:bg-slate-800/80 hover:border-slate-600 shadow-lg`}
             >
-                <span className={`block truncate font-medium ${!selectedPlayer ? 'text-slate-400' : ''}`}>
-                    {selectedPlayer ? selectedPlayer.name : 'Select Player...'}
-                </span>
-                <span className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <svg className={`h-5 w-5 ${theme.icon} transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {selectedPlayer ? (
+                    <>
+                        <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${theme.avatar} flex-shrink-0 flex items-center justify-center text-xs font-bold shadow-md overflow-hidden border border-white/10`}>
+                            {selectedPlayer.image ? (
+                                <img src={selectedPlayer.image} alt={selectedPlayer.name} className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="text-white text-sm">{selectedPlayer.name[0]}</span>
+                            )}
+                        </div>
+                        <div className="flex flex-col overflow-hidden">
+                            <span className="font-bold text-sm leading-tight truncate">{selectedPlayer.name}</span>
+                            <span className="text-[10px] text-slate-400 uppercase tracking-wider leading-tight truncate">{selectedPlayer.role}</span>
+                        </div>
+                    </>
+                ) : (
+                    <span className="text-slate-400 font-medium ml-1 py-2">Select a player...</span>
+                )}
+
+                <span className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                    <svg className={`h-5 w-5 text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                     </svg>
                 </span>
             </button>
 
+            {/* Dropdown Menu */}
             {isOpen && (
-                <div className="absolute z-50 mt-2 w-full bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-auto animate-fade-in-down backdrop-blur-xl">
-                    <ul className="py-1 text-base focus:outline-none sm:text-sm">
-                        {players.map((player) => (
-                            <li
-                                key={player._id}
-                                onClick={() => {
-                                    onSelect(player._id);
-                                    setIsOpen(false);
-                                }}
-                                className={`cursor-pointer select-none relative py-3 pl-4 pr-9 text-slate-200 transition-colors duration-150 ${theme.hover} hover:text-white border-b border-slate-800/50 last:border-0 ${selectedId === player._id ? theme.selectedBg : ''}`}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span className={`font-medium block truncate ${selectedId === player._id ? 'text-white' : ''}`}>
-                                        {player.name}
-                                    </span>
-                                    <span className="text-[10px] uppercase tracking-wider text-slate-500 border border-slate-700 px-1.5 py-0.5 rounded bg-slate-800">
-                                        {player.role}
-                                    </span>
-                                </div>
-                                
-                                {selectedId === player._id && (
-                                    <span className={`absolute inset-y-0 right-0 flex items-center pr-4 ${theme.icon}`}>
-                                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                        </svg>
-                                    </span>
-                                )}
-                            </li>
-                        ))}
+                <div className="absolute z-50 mt-2 w-full bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-fade-in-down origin-top ring-1 ring-black/5">
+                    
+                    {/* Search Bar */}
+                    <div className="p-2 border-b border-slate-800 sticky top-0 bg-slate-900/95 z-10">
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg className="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            </div>
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                className="w-full bg-slate-950 text-slate-200 text-sm rounded-lg pl-9 pr-3 py-2 border border-slate-800 focus:border-slate-600 focus:ring-0 placeholder-slate-600 outline-none transition-colors"
+                                placeholder="Search..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* List Items */}
+                    <ul className="max-h-64 overflow-y-auto custom-scrollbar py-1">
+                        {filteredPlayers.length === 0 ? (
+                            <li className="px-4 py-3 text-sm text-slate-500 text-center">No players found</li>
+                        ) : (
+                            filteredPlayers.map((player) => (
+                                <li
+                                    key={player._id}
+                                    onClick={() => {
+                                        onSelect(player._id);
+                                        setIsOpen(false);
+                                    }}
+                                    className={`cursor-pointer select-none relative px-3 py-2 mx-2 my-1 rounded-lg border border-transparent transition-all duration-150 group ${selectedId === player._id ? theme.itemSelected : theme.itemHover}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-9 h-9 rounded-full bg-slate-800 flex-shrink-0 flex items-center justify-center text-xs font-bold text-slate-400 group-hover:text-white group-hover:bg-slate-700 transition-colors overflow-hidden border border-slate-700 ${selectedId === player._id ? `bg-gradient-to-br ${theme.avatar} text-white border-white/20` : ''}`}>
+                                            {player.image ? (
+                                                <img src={player.image} alt={player.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                player.name[0]
+                                            )}
+                                        </div>
+                                        <div className="flex flex-col overflow-hidden">
+                                            <span className={`text-sm font-medium truncate ${selectedId === player._id ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>
+                                                {player.name}
+                                            </span>
+                                            <span className="text-[10px] text-slate-500 uppercase tracking-wider truncate">
+                                                {player.role} • {player.country}
+                                            </span>
+                                        </div>
+                                        {selectedId === player._id && (
+                                            <div className="ml-auto">
+                                                <svg className={`h-5 w-5 ${theme.icon}`} viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                </svg>
+                                            </div>
+                                        )}
+                                    </div>
+                                </li>
+                            ))
+                        )}
                     </ul>
                 </div>
             )}
@@ -169,8 +235,12 @@ const CrickJudge = () => {
                             
                             {p1 && (
                                 <div className="mt-8 text-center animate-fade-in">
-                                    <div className="w-24 h-24 mx-auto bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center text-3xl font-bold text-white shadow-lg mb-4 border border-white/20">
-                                        {p1.name[0]}
+                                    <div className="w-32 h-32 mx-auto bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center text-4xl font-bold text-white shadow-2xl mb-4 border-4 border-slate-800 overflow-hidden relative ring-4 ring-blue-500/20">
+                                        {p1.image ? (
+                                            <img src={p1.image} alt={p1.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            p1.name[0]
+                                        )}
                                     </div>
                                     <h3 className="text-xl font-bold text-white">{p1.name}</h3>
                                     <span className="inline-block mt-2 px-3 py-1 bg-blue-500/20 text-blue-300 text-xs font-bold rounded-full border border-blue-500/30">
@@ -228,8 +298,12 @@ const CrickJudge = () => {
 
                             {p2 && (
                                 <div className="mt-8 text-center animate-fade-in">
-                                    <div className="w-24 h-24 mx-auto bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center text-3xl font-bold text-white shadow-lg mb-4 border border-white/20">
-                                        {p2.name[0]}
+                                    <div className="w-32 h-32 mx-auto bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-4xl font-bold text-white shadow-2xl mb-4 border-4 border-slate-800 overflow-hidden relative ring-4 ring-purple-500/20">
+                                        {p2.image ? (
+                                            <img src={p2.image} alt={p2.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            p2.name[0]
+                                        )}
                                     </div>
                                     <h3 className="text-xl font-bold text-white">{p2.name}</h3>
                                     <span className="inline-block mt-2 px-3 py-1 bg-purple-500/20 text-purple-300 text-xs font-bold rounded-full border border-purple-500/30">
