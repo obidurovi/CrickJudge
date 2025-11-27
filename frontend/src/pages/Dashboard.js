@@ -7,6 +7,7 @@ const Dashboard = () => {
     const [players, setPlayers] = useState([]);
     const [team, setTeam] = useState([]);
     const [search, setSearch] = useState('');
+    const [roleFilter, setRoleFilter] = useState('All'); // New state for filter
     const [loading, setLoading] = useState(false);
 
     // Fetch players from Backend
@@ -48,10 +49,16 @@ const Dashboard = () => {
         // eslint-disable-next-line
     }, [search]);
 
+    // Filter logic
+    const filteredPlayers = players.filter(player => {
+        if (roleFilter === 'All') return true;
+        return player.role === roleFilter;
+    });
+
     return (
         <div className='min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200'>
             
-            {/* NEW: Modern Glass Navbar */}
+            {/* Modern Glass Navbar */}
             <nav className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-lg border-b border-white/10 shadow-lg">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-20">
@@ -67,25 +74,13 @@ const Dashboard = () => {
                             </div>
                         </div>
 
-                        {/* Center: Integrated Search Bar */}
-                        <div className="hidden md:block flex-1 max-w-xl mx-8">
-                            <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <svg className="h-5 w-5 text-slate-400 group-focus-within:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                                </div>
-                                <input
-                                    type="text"
-                                    className="block w-full pl-10 pr-3 py-2.5 border border-slate-700 rounded-lg leading-5 bg-slate-800/50 text-slate-300 placeholder-slate-500 focus:outline-none focus:bg-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:text-sm transition-all duration-200"
-                                    placeholder="Search players, roles, or countries..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
-                            </div>
-                        </div>
-
                         {/* Right: Action Buttons */}
                         <div className="flex items-center gap-3">
                             {/* Navigation Links */}
+                            <Link to="/teams" className="hidden md:flex items-center gap-2 px-3 py-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-sm font-medium">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                Teams
+                            </Link>
                             <Link to="/analytics" className="hidden md:flex items-center gap-2 px-3 py-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-sm font-medium">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                                 Analytics
@@ -125,17 +120,6 @@ const Dashboard = () => {
             {/* Main Content Area */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 
-                {/* Mobile Search (Visible only on small screens) */}
-                <div className="md:hidden mb-8">
-                    <input
-                        type="text"
-                        className="block w-full px-4 py-3 border border-slate-700 rounded-xl bg-slate-800/50 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                        placeholder="Search players..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
-                </div>
-
                 {/* Best XI Section */}
                 {team.length > 0 && (
                     <section className='mb-12 animate-fade-in-up'>
@@ -164,22 +148,70 @@ const Dashboard = () => {
                     </section>
                 )}
 
-                {/* Database Section */}
+                {/* Database Section - Redesigned */}
                 <section>
-                    <div className='flex items-center justify-between mb-6'>
-                        <h2 className='text-xl font-bold text-white flex items-center gap-2'>
-                            Player Database
-                            <span className='text-xs font-normal text-slate-400 bg-slate-800 px-2 py-1 rounded-md border border-slate-700'>{players.length}</span>
-                        </h2>
+                    <div className="mb-8">
+                        <h2 className="text-3xl font-bold text-white mb-2">Player Archive</h2>
+                        <div className="flex items-center gap-3 mb-6">
+                            <span className="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded text-xs font-medium uppercase tracking-wider">Live Sync</span>
+                            <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-medium uppercase tracking-wider">{filteredPlayers.length} Records</span>
+                        </div>
+
+                        {/* Filter Bar Container */}
+                        <div className="bg-slate-800/40 border border-white/10 p-1.5 rounded-2xl flex flex-col md:flex-row items-center gap-2 backdrop-blur-sm">
+                            {/* Search Input */}
+                            <div className="relative flex-1 w-full">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <svg className="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+                                <input
+                                    type="text"
+                                    className="block w-full pl-11 pr-4 py-3 bg-transparent border-none text-white placeholder-slate-500 focus:ring-0 sm:text-sm"
+                                    placeholder="Search database..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                            </div>
+                            
+                            {/* Divider */}
+                            <div className="hidden md:block w-px h-8 bg-white/10 mx-2"></div>
+
+                            {/* Filter Buttons */}
+                            <div 
+                                className="flex items-center gap-1 w-full md:w-auto overflow-x-auto overflow-y-hidden pb-2 md:pb-0 px-2 md:px-0 no-scrollbar"
+                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                            >
+                                {/* Hide scrollbar for Chrome/Safari/Opera */}
+                                <style>{`
+                                    .no-scrollbar::-webkit-scrollbar {
+                                        display: none;
+                                    }
+                                `}</style>
+                                {['All', 'Batsman', 'Bowler', 'Allrounder', 'Wicketkeeper'].map((role) => (
+                                    <button
+                                        key={role}
+                                        onClick={() => setRoleFilter(role)}
+                                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                                            roleFilter === role 
+                                            ? 'bg-white text-slate-900 shadow-lg transform scale-105' 
+                                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                        }`}
+                                    >
+                                        {role}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
 
-                    {players.length === 0 ? (
+                    {/* Grid */}
+                    {filteredPlayers.length === 0 ? (
                         <div className='text-center py-32 bg-white/5 rounded-3xl border-2 border-dashed border-white/10'>
-                            <p className='text-slate-400 text-lg'>No players found matching your search.</p>
+                            <p className='text-slate-400 text-lg'>No players found matching your criteria.</p>
                         </div>
                     ) : (
                         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'>
-                            {players.map(player => (
+                            {filteredPlayers.map(player => (
                                 <div key={player._id} className="transform transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-900/20">
                                     <PlayerCard player={player} />
                                 </div>
@@ -192,4 +224,4 @@ const Dashboard = () => {
     );
 };
 
-export default Dashboard;
+export default Dashboard
