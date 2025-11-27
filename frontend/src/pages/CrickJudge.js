@@ -1,7 +1,101 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
+// --- Custom Dropdown Component ---
+const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const selectedPlayer = players.find(p => p._id === selectedId);
+    
+    // Dynamic styles based on color prop
+    const theme = {
+        blue: {
+            label: 'text-blue-400',
+            ring: 'focus:ring-blue-500',
+            icon: 'text-blue-500',
+            hover: 'hover:bg-blue-600',
+            selectedBg: 'bg-blue-500/20'
+        },
+        purple: {
+            label: 'text-purple-400',
+            ring: 'focus:ring-purple-500',
+            icon: 'text-purple-500',
+            hover: 'hover:bg-purple-600',
+            selectedBg: 'bg-purple-500/20'
+        }
+    }[color];
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <label className={`block ${theme.label} text-sm font-bold mb-3 uppercase tracking-wider`}>
+                {label}
+            </label>
+            
+            <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className={`w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl py-3 pl-4 pr-10 text-left focus:outline-none focus:ring-2 ${theme.ring} transition-all flex items-center justify-between group hover:bg-slate-800/80 shadow-sm`}
+            >
+                <span className={`block truncate font-medium ${!selectedPlayer ? 'text-slate-400' : ''}`}>
+                    {selectedPlayer ? selectedPlayer.name : 'Select Player...'}
+                </span>
+                <span className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg className={`h-5 w-5 ${theme.icon} transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </span>
+            </button>
+
+            {isOpen && (
+                <div className="absolute z-50 mt-2 w-full bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-auto animate-fade-in-down backdrop-blur-xl">
+                    <ul className="py-1 text-base focus:outline-none sm:text-sm">
+                        {players.map((player) => (
+                            <li
+                                key={player._id}
+                                onClick={() => {
+                                    onSelect(player._id);
+                                    setIsOpen(false);
+                                }}
+                                className={`cursor-pointer select-none relative py-3 pl-4 pr-9 text-slate-200 transition-colors duration-150 ${theme.hover} hover:text-white border-b border-slate-800/50 last:border-0 ${selectedId === player._id ? theme.selectedBg : ''}`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className={`font-medium block truncate ${selectedId === player._id ? 'text-white' : ''}`}>
+                                        {player.name}
+                                    </span>
+                                    <span className="text-[10px] uppercase tracking-wider text-slate-500 border border-slate-700 px-1.5 py-0.5 rounded bg-slate-800">
+                                        {player.role}
+                                    </span>
+                                </div>
+                                
+                                {selectedId === player._id && (
+                                    <span className={`absolute inset-y-0 right-0 flex items-center pr-4 ${theme.icon}`}>
+                                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                    </span>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- Main Page Component ---
 const CrickJudge = () => {
     const [players, setPlayers] = useState([]);
     const [p1, setP1] = useState(null);
@@ -44,12 +138,12 @@ const CrickJudge = () => {
                     <div className="flex items-center justify-between h-20">
                         {/* Logo Section */}
                         <div className="flex-shrink-0 flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-rose-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
                                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                             </div>
                             <div>
-                                <h1 className="text-2xl font-bold text-white tracking-tight">Versus Arena</h1>
-                                <p className="text-xs text-rose-300 font-medium tracking-wide">COMPARISON ENGINE</p>
+                                <h1 className="text-2xl font-bold text-white tracking-tight">CrickJudge</h1>
+                                <p className="text-xs text-blue-300 font-medium tracking-wide">ANALYTICS ENGINE</p>
                             </div>
                         </div>
                     </div>
@@ -63,14 +157,15 @@ const CrickJudge = () => {
                     {/* Player 1 Selector */}
                     <div className="lg:col-span-3 space-y-6">
                         <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-xl">
-                            <label className="block text-blue-400 text-sm font-bold mb-3 uppercase tracking-wider">Challenger (Blue)</label>
-                            <select 
-                                className="w-full bg-slate-800/50 border border-slate-600 text-white rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                onChange={(e) => setP1(players.find(p => p._id === e.target.value))}
-                            >
-                                <option value="">Select Player...</option>
-                                {players.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
-                            </select>
+                            
+                            {/* Custom Dropdown for Player 1 */}
+                            <PlayerDropdown 
+                                label="Challenger (Blue)"
+                                color="blue"
+                                players={players}
+                                selectedId={p1?._id}
+                                onSelect={(id) => setP1(players.find(p => p._id === id))}
+                            />
                             
                             {p1 && (
                                 <div className="mt-8 text-center animate-fade-in">
@@ -121,14 +216,15 @@ const CrickJudge = () => {
                     {/* Player 2 Selector */}
                     <div className="lg:col-span-3 space-y-6">
                         <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-xl">
-                            <label className="block text-purple-400 text-sm font-bold mb-3 uppercase tracking-wider">Opponent (Purple)</label>
-                            <select 
-                                className="w-full bg-slate-800/50 border border-slate-600 text-white rounded-xl p-3 focus:ring-2 focus:ring-purple-500 outline-none transition-all"
-                                onChange={(e) => setP2(players.find(p => p._id === e.target.value))}
-                            >
-                                <option value="">Select Player...</option>
-                                {players.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
-                            </select>
+                            
+                            {/* Custom Dropdown for Player 2 */}
+                            <PlayerDropdown 
+                                label="Opponent (Purple)"
+                                color="purple"
+                                players={players}
+                                selectedId={p2?._id}
+                                onSelect={(id) => setP2(players.find(p => p._id === id))}
+                            />
 
                             {p2 && (
                                 <div className="mt-8 text-center animate-fade-in">
