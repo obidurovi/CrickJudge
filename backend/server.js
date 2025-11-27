@@ -1,19 +1,21 @@
 const express = require('express');
 const dotenv = require('dotenv');
+const cors = require('cors'); // Import CORS
 const connectDB = require('./config/db');
+const playerRoutes = require('./routes/playerRoutes');
 
-// Load Config
 dotenv.config();
-
-// Connect to Database
 connectDB();
 
 const app = express();
 
-// Middleware to parse JSON
+app.use(cors()); // Enable CORS for Frontend access
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('CrickJudge API is running with MongoDB'));
+// Mount Routes
+app.use('/api/players', playerRoutes);
+
+app.get('/', (req, res) => res.send('CrickJudge API is running'));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(\Server running on port \\));
