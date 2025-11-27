@@ -1,7 +1,9 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
-import CrickJudge from './pages/CrickJudge'; // Import the new page
+import CrickJudge from './pages/CrickJudge';
+import AnalyticsHub from './pages/AnalyticsHub';
+import MatchSimulator from './pages/MatchSimulator';
 
 // Sidebar Component
 const Sidebar = () => {
@@ -27,6 +29,14 @@ const Sidebar = () => {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
           CrickJudge
         </Link>
+        <Link to="/analytics" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/analytics')}`}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h18M3 12h18M3 21h18"></path></svg>
+          Analytics Hub
+        </Link>
+        <Link to="/simulator" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/simulator')}`}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 2v20m10-10H2"></path></svg>
+          Match Simulator
+        </Link>
       </nav>
 
       <div className="p-4">
@@ -50,8 +60,9 @@ function App() {
         <div className="flex-1 ml-64">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            {/* Updated Route */}
-            <Route path="/crickjudge" element={<CrickJudge />} /> {/* Add this line */}
+            <Route path="/crickjudge" element={<CrickJudge />} />
+            <Route path="/analytics" element={<AnalyticsHub />} />
+            <Route path="/simulator" element={<MatchSimulator />} />
           </Routes>
         </div>
       </div>
