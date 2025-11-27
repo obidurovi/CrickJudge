@@ -8,21 +8,159 @@ const scrapePlayers = async () => {
     // We are seeding realistic data to ensure your algorithm works perfectly for the demo.
     
     const mockPlayers = [
-        { name: 'Shakib Al Hasan', country: 'Bangladesh', role: 'Allrounder', battingStyle: 'Left-hand bat', bowlingStyle: 'Slow Left arm Orthodox', stats: { matches: 400, runs: 13000, wickets: 650, average: 35.5, economy: 4.5, strikeRate: 82.0 } },
-        { name: 'Virat Kohli', country: 'India', role: 'Batsman', battingStyle: 'Right-hand bat', bowlingStyle: 'Right-arm medium', stats: { matches: 500, runs: 25000, wickets: 4, average: 53.5, economy: 8.5, strikeRate: 93.0 } },
-        { name: 'Rashid Khan', country: 'Afghanistan', role: 'Bowler', battingStyle: 'Right-hand bat', bowlingStyle: 'Legbreak Googly', stats: { matches: 150, runs: 1200, wickets: 300, average: 15.5, economy: 6.2, strikeRate: 140.0 } },
-        { name: 'Jos Buttler', country: 'England', role: 'Wicketkeeper', battingStyle: 'Right-hand bat', bowlingStyle: 'None', stats: { matches: 300, runs: 10000, wickets: 0, average: 40.5, economy: 0, strikeRate: 118.0 } },
-        { name: 'Babar Azam', country: 'Pakistan', role: 'Batsman', battingStyle: 'Right-hand bat', bowlingStyle: 'Right-arm offbreak', stats: { matches: 250, runs: 11000, wickets: 2, average: 49.5, economy: 7.0, strikeRate: 88.0 } },
-        { name: 'Trent Boult', country: 'New Zealand', role: 'Bowler', battingStyle: 'Right-hand bat', bowlingStyle: 'Left-arm fast-medium', stats: { matches: 200, runs: 600, wickets: 350, average: 24.5, economy: 4.8, strikeRate: 50.0 } },
-        { name: 'Ben Stokes', country: 'England', role: 'Allrounder', battingStyle: 'Left-hand bat', bowlingStyle: 'Right-arm fast-medium', stats: { matches: 220, runs: 8000, wickets: 250, average: 36.0, economy: 5.9, strikeRate: 95.0 } },
-        { name: 'David Warner', country: 'Australia', role: 'Batsman', battingStyle: 'Left-hand bat', bowlingStyle: 'Legbreak', stats: { matches: 340, runs: 17000, wickets: 0, average: 45.0, economy: 0, strikeRate: 95.0 } },
-        { name: 'Jasprit Bumrah', country: 'India', role: 'Bowler', battingStyle: 'Right-hand bat', bowlingStyle: 'Right-arm fast', stats: { matches: 180, runs: 100, wickets: 320, average: 22.0, economy: 4.6, strikeRate: 40.0 } },
-        { name: 'Kane Williamson', country: 'New Zealand', role: 'Batsman', battingStyle: 'Right-hand bat', bowlingStyle: 'Right-arm offbreak', stats: { matches: 320, runs: 16000, wickets: 30, average: 48.0, economy: 6.0, strikeRate: 80.0 } },
-        { name: 'Andre Russell', country: 'West Indies', role: 'Allrounder', battingStyle: 'Right-hand bat', bowlingStyle: 'Right-arm fast', stats: { matches: 300, runs: 6000, wickets: 300, average: 28.0, economy: 8.5, strikeRate: 160.0 } },
-        { name: 'Quinton de Kock', country: 'South Africa', role: 'Wicketkeeper', battingStyle: 'Left-hand bat', bowlingStyle: 'None', stats: { matches: 280, runs: 9500, wickets: 0, average: 38.0, economy: 0, strikeRate: 96.0 } },
-        { name: 'Kagiso Rabada', country: 'South Africa', role: 'Bowler', battingStyle: 'Left-hand bat', bowlingStyle: 'Right-arm fast', stats: { matches: 190, runs: 500, wickets: 310, average: 23.0, economy: 5.0, strikeRate: 45.0 } },
-        { name: 'Glenn Maxwell', country: 'Australia', role: 'Allrounder', battingStyle: 'Right-hand bat', bowlingStyle: 'Right-arm offbreak', stats: { matches: 250, runs: 7000, wickets: 120, average: 32.0, economy: 6.5, strikeRate: 150.0 } },
-        { name: 'Rohit Sharma', country: 'India', role: 'Batsman', battingStyle: 'Right-hand bat', bowlingStyle: 'Right-arm offbreak', stats: { matches: 430, runs: 17000, wickets: 8, average: 48.0, economy: 5.5, strikeRate: 90.0 } }
+        { 
+            name: 'Shakib Al Hasan', 
+            country: 'Bangladesh', 
+            role: 'Allrounder', 
+            battingStyle: 'Left-hand bat', 
+            bowlingStyle: 'Slow Left arm Orthodox', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316690.png",
+            stats: { matches: 400, runs: 13000, wickets: 650, average: 35.5, economy: 4.5, strikeRate: 82.0 } 
+        },
+        { 
+            name: 'Virat Kohli', 
+            country: 'India', 
+            role: 'Batsman', 
+            battingStyle: 'Right-hand bat', 
+            bowlingStyle: 'Right-arm medium', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316605.png",
+            stats: { matches: 500, runs: 25000, wickets: 4, average: 53.5, economy: 8.5, strikeRate: 93.0 } 
+        },
+        { 
+            name: 'Rashid Khan', 
+            country: 'Afghanistan', 
+            role: 'Bowler', 
+            battingStyle: 'Right-hand bat', 
+            bowlingStyle: 'Legbreak Googly', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316668.png",
+            stats: { matches: 150, runs: 1200, wickets: 300, average: 15.5, economy: 6.2, strikeRate: 140.0 } 
+        },
+        { 
+            name: 'Jos Buttler', 
+            country: 'England', 
+            role: 'Wicketkeeper', 
+            battingStyle: 'Right-hand bat', 
+            bowlingStyle: 'None', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316637.png",
+            stats: { matches: 300, runs: 10000, wickets: 0, average: 40.5, economy: 0, strikeRate: 118.0 } 
+        },
+        { 
+            name: 'Babar Azam', 
+            country: 'Pakistan', 
+            role: 'Batsman', 
+            battingStyle: 'Right-hand bat', 
+            bowlingStyle: 'Right-arm offbreak', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/320400/320448.png",
+            stats: { matches: 250, runs: 11000, wickets: 2, average: 49.5, economy: 7.0, strikeRate: 88.0 } 
+        },
+        { 
+            name: 'Trent Boult', 
+            country: 'New Zealand', 
+            role: 'Bowler', 
+            battingStyle: 'Right-hand bat', 
+            bowlingStyle: 'Left-arm fast-medium', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316652.png",
+            stats: { matches: 200, runs: 600, wickets: 350, average: 24.5, economy: 4.8, strikeRate: 50.0 } 
+        },
+        { 
+            name: 'Ben Stokes', 
+            country: 'England', 
+            role: 'Allrounder', 
+            battingStyle: 'Left-hand bat', 
+            bowlingStyle: 'Right-arm fast-medium', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316632.png",
+            stats: { matches: 220, runs: 8000, wickets: 250, average: 36.0, economy: 5.9, strikeRate: 95.0 } 
+        },
+        { 
+            name: 'David Warner', 
+            country: 'Australia', 
+            role: 'Batsman', 
+            battingStyle: 'Left-hand bat', 
+            bowlingStyle: 'Legbreak', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316679.png",
+            stats: { matches: 340, runs: 17000, wickets: 0, average: 45.0, economy: 0, strikeRate: 95.0 } 
+        },
+        { 
+            name: 'Jasprit Bumrah', 
+            country: 'India', 
+            role: 'Bowler', 
+            battingStyle: 'Right-hand bat', 
+            bowlingStyle: 'Right-arm fast', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316619.png",
+            stats: { matches: 180, runs: 100, wickets: 320, average: 22.0, economy: 4.6, strikeRate: 40.0 } 
+        },
+        { 
+            name: 'Kane Williamson', 
+            country: 'New Zealand', 
+            role: 'Batsman', 
+            battingStyle: 'Right-hand bat', 
+            bowlingStyle: 'Right-arm offbreak', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316651.png",
+            stats: { matches: 320, runs: 16000, wickets: 30, average: 48.0, economy: 6.0, strikeRate: 80.0 } 
+        },
+        { 
+            name: 'Andre Russell', 
+            country: 'West Indies', 
+            role: 'Allrounder', 
+            battingStyle: 'Right-hand bat', 
+            bowlingStyle: 'Right-arm fast', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316696.png",
+            stats: { matches: 300, runs: 6000, wickets: 300, average: 28.0, economy: 8.5, strikeRate: 160.0 } 
+        },
+        { 
+            name: 'Quinton de Kock', 
+            country: 'South Africa', 
+            role: 'Wicketkeeper', 
+            battingStyle: 'Left-hand bat', 
+            bowlingStyle: 'None', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316660.png",
+            stats: { matches: 280, runs: 9500, wickets: 0, average: 38.0, economy: 0, strikeRate: 96.0 } 
+        },
+        { 
+            name: 'Kagiso Rabada', 
+            country: 'South Africa', 
+            role: 'Bowler', 
+            battingStyle: 'Left-hand bat', 
+            bowlingStyle: 'Right-arm fast', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316663.png",
+            stats: { matches: 190, runs: 500, wickets: 310, average: 23.0, economy: 5.0, strikeRate: 45.0 } 
+        },
+        { 
+            name: 'Glenn Maxwell', 
+            country: 'Australia', 
+            role: 'Allrounder', 
+            battingStyle: 'Right-hand bat', 
+            bowlingStyle: 'Right-arm offbreak', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316676.png",
+            stats: { matches: 250, runs: 7000, wickets: 120, average: 32.0, economy: 6.5, strikeRate: 150.0 } 
+        },
+        { 
+            name: 'Rohit Sharma', 
+            country: 'India', 
+            role: 'Batsman', 
+            battingStyle: 'Right-hand bat', 
+            bowlingStyle: 'Right-arm offbreak', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316606.png",
+            stats: { matches: 430, runs: 17000, wickets: 8, average: 48.0, economy: 5.5, strikeRate: 90.0 } 
+        },
+        { 
+            name: 'Joe Root', 
+            country: 'England', 
+            role: 'Batsman', 
+            battingStyle: 'Right-hand bat', 
+            bowlingStyle: 'Right-arm offbreak', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316629.png",
+            stats: { matches: 320, runs: 18000, wickets: 50, average: 49.0, economy: 5.6, strikeRate: 86.0 } 
+        },
+        { 
+            name: 'Steve Smith', 
+            country: 'Australia', 
+            role: 'Batsman', 
+            battingStyle: 'Right-hand bat', 
+            bowlingStyle: 'Legbreak Googly', 
+            image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316674.png",
+            stats: { matches: 300, runs: 15000, wickets: 18, average: 59.0, economy: 5.8, strikeRate: 88.0 } 
+        }
     ];
 
     // Clear old data and insert new
