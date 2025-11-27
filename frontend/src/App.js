@@ -1,1 +1,12 @@
-import React from 'react'; export default function App() { return <h1>CrickJudge Frontend Initialized</h1>; }
+import React from 'react';
+import Dashboard from './pages/Dashboard';
+
+function App() {
+  return (
+    <div className='App'>
+      <Dashboard />
+    </div>
+  );
+}
+
+export default App;
