@@ -4,6 +4,9 @@ import Dashboard from './pages/Dashboard';
 import CrickJudge from './pages/CrickJudge';
 import AnalyticsHub from './pages/AnalyticsHub';
 import MatchSimulator from './pages/MatchSimulator';
+import TeamsPage from './pages/TeamsPage'; // Import the new page
+import VenueIntelligence from './pages/VenueIntelligence';
+
 
 // Sidebar Component
 const Sidebar = () => {
@@ -37,6 +40,14 @@ const Sidebar = () => {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 2v20m10-10H2"></path></svg>
           Match Simulator
         </Link>
+        <Link to="/teams" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/teams')}`}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h18M3 12h18M3 21h18"></path></svg>
+          Teams
+        </Link>
+        <Link to="/venue-intelligence" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/venue-intelligence')}`}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h18M3 12h18M3 21h18"></path></svg>
+          Venue Intelligence
+        </Link>
       </nav>
 
       <div className="p-4">
@@ -63,6 +74,8 @@ function App() {
             <Route path="/crickjudge" element={<CrickJudge />} />
             <Route path="/analytics" element={<AnalyticsHub />} />
             <Route path="/simulator" element={<MatchSimulator />} />
+            <Route path="/teams" element={<TeamsPage />} /> {/* Add Route */}
+            <Route path="/venue-intelligence" element={<VenueIntelligence />} />
           </Routes>
         </div>
       </div>
