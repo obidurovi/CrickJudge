@@ -18,4 +18,4 @@ app.use('/api/players', playerRoutes);
 app.get('/', (req, res) => res.send('CrickJudge API is running'));
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(\Server running on port \\));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
