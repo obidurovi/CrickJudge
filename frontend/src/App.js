@@ -7,6 +7,7 @@ import MatchSimulator from './pages/MatchSimulator';
 import TeamsPage from './pages/TeamsPage';
 import VenueIntelligence from './pages/VenueIntelligence';
 import LiveMatches from './pages/LiveMatches';
+import PlayerDetail from './pages/PlayerDetail';
 
 const Sidebar = () => {
   const location = useLocation();
@@ -81,6 +82,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/live-matches" element={<LiveMatches />} />
+            <Route path="/player/:apiId" element={<PlayerDetail />} />
             <Route path="/crickjudge" element={<CrickJudge />} />
             <Route path="/analytics" element={<AnalyticsHub />} />
             <Route path="/simulator" element={<MatchSimulator />} />

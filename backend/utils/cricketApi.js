@@ -37,8 +37,12 @@ module.exports = {
     getCurrentMatches: () => request('/currentMatches', {}, 30000),
     getMatchInfo: (id) => request('/match_info', { id }, 30000),
     getMatchScorecard: (id) => request('/match_scorecard', { id }, 30000),
-    searchPlayers: (search) => request('/players', { search }, 300000),
-    getPlayerStats: (id) => request('/playerStats', { id }, 300000),
+    listPlayers: (offset = 0, search = '') => {
+        const params = { offset };
+        if (search) params.search = search;
+        return request('/players', params, 600000);
+    },
+    getPlayerInfo: (id) => request('/players_info', { id }, 300000),
     getSeries: () => request('/series', {}, 300000),
     getSeriesInfo: (id) => request('/series_info', { id }, 300000),
     clearCache: () => cache.clear()

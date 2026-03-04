@@ -18,6 +18,8 @@ const TeamsPage = () => {
     const [selectedTeam, setSelectedTeam] = useState('All');
     const [search, setSearch] = useState('');
     const [expandedLeagues, setExpandedLeagues] = useState({});
+    const [searchingLive, setSearchingLive] = useState(false);
+    const [countries, setCountries] = useState(['All']);
 
     useEffect(() => {
         const fetchPlayers = async () => {
@@ -28,14 +30,36 @@ const TeamsPage = () => {
                 console.error("Error fetching players", error);
             }
         };
+        const fetchCountries = async () => {
+            try {
+                const { data } = await axios.get('http://localhost:5000/api/players/countries');
+                setCountries(['All', ...data]);
+            } catch (error) {
+                const unique = [...new Set(players.map(p => p.country))].filter(Boolean).sort();
+                setCountries(['All', ...unique]);
+            }
+        };
         fetchPlayers();
+        fetchCountries();
     }, []);
 
-    // Extract unique countries
-    const uniqueCountries = [...new Set(players.map(p => p.country))].sort();
-    const countries = ['All', ...uniqueCountries];
+    const searchLiveApi = async () => {
+        if (!search || search.length < 2) return;
+        setSearchingLive(true);
+        try {
+            const { data } = await axios.get(`http://localhost:5000/api/players/search?q=${encodeURIComponent(search)}`);
+            if (data.data?.length) {
+                const existing = new Set(players.map(p => p._id));
+                const newPlayers = data.data.filter(p => !existing.has(p._id));
+                setPlayers(prev => [...newPlayers, ...prev]);
+            }
+        } catch (err) {
+            console.error('Live search failed:', err);
+        } finally {
+            setSearchingLive(false);
+        }
+    };
 
-    // Toggle Accordion
     const toggleLeague = (league) => {
         setExpandedLeagues(prev => ({ ...prev, [league]: !prev[league] }));
     };
@@ -115,6 +139,18 @@ const TeamsPage = () => {
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
+                    <button
+                        onClick={searchLiveApi}
+                        disabled={searchingLive || !search || search.length < 2}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-xs font-bold rounded-lg transition-all"
+                    >
+                        {searchingLive ? (
+                            <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                        ) : (
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728"></path></svg>
+                        )}
+                        Search Live API
+                    </button>
 
                     {/* Team List */}
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">

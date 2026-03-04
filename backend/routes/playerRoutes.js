@@ -1,8 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { getPlayers, refreshPlayers } = require('../controllers/playerController');
+const {
+    listPlayers, searchPlayers, getPlayerDetail, getPlayerCountries
+} = require('../controllers/playerController');
 
-router.get('/', getPlayers);
-router.post('/refresh', refreshPlayers);
+router.get('/', listPlayers);
+router.get('/search', searchPlayers);
+router.get('/countries', getPlayerCountries);
+router.get('/detail/:apiId', getPlayerDetail);
 
 module.exports = router;

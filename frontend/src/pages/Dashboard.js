@@ -3,53 +3,84 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import PlayerCard from '../components/PlayerCard';
 
+const API = 'http://localhost:5000/api/players';
+
 const Dashboard = () => {
     const [players, setPlayers] = useState([]);
-    const [team, setTeam] = useState([]);
+    const [searchResults, setSearchResults] = useState(null);
     const [search, setSearch] = useState('');
-    const [roleFilter, setRoleFilter] = useState('All');
+    const [offset, setOffset] = useState(0);
+    const [total, setTotal] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [searching, setSearching] = useState(false);
+    const [error, setError] = useState(null);
 
-    const fetchPlayers = useCallback(async () => {
+    const fetchPlayers = useCallback(async (newOffset = 0, append = false) => {
+        if (append) setLoadingMore(true);
+        else setLoading(true);
+        setError(null);
         try {
-            const { data } = await axios.get(`http://localhost:5000/api/players?search=${search}`);
-            setPlayers(data);
-        } catch (error) {
-            console.error('Error fetching players:', error);
+            const { data } = await axios.get(`${API}?offset=${newOffset}`);
+            if (append) {
+                setPlayers(prev => [...prev, ...data.players]);
+            } else {
+                setPlayers(data.players);
+            }
+            setTotal(data.total);
+            setHasMore(data.hasMore);
+            setOffset(newOffset);
+        } catch (err) {
+            if (err.response?.data?.code === 'API_KEY_MISSING') {
+                setError('API key not configured. Add CRICKET_API_KEY to your backend .env file.');
+            } else {
+                setError('Failed to fetch players. Make sure the backend is running.');
+            }
+        } finally {
+            setLoading(false);
+            setLoadingMore(false);
+        }
+    }, []);
+
+    const handleSearch = useCallback(async () => {
+        if (!search || search.length < 2) {
+            setSearchResults(null);
+            return;
+        }
+        setSearching(true);
+        try {
+            const { data } = await axios.get(`${API}/search?q=${encodeURIComponent(search)}`);
+            setSearchResults(data.players || []);
+        } catch (err) {
+            console.error('Search error:', err);
+        } finally {
+            setSearching(false);
         }
     }, [search]);
 
-    const scrapeData = async () => {
-        setLoading(true);
-        try {
-            await axios.post('http://localhost:5000/api/players/scrape');
-            alert('Data scraped successfully! Database updated.');
-            fetchPlayers();
-        } catch (err) {
-            alert('Error scraping data: ' + err.message);
-        }
-        setLoading(false);
-    };
-
-    const generateTeam = async () => {
-        try {
-            const { data } = await axios.get('http://localhost:5000/api/players/generate-team');
-            setTeam(data);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        } catch (err) {
-            alert('Error generating team: ' + (err.response?.data?.message || err.message));
-        }
-    };
+    useEffect(() => {
+        fetchPlayers(0);
+    }, [fetchPlayers]);
 
     useEffect(() => {
-        fetchPlayers();
-    }, [search, fetchPlayers]);
+        const timer = setTimeout(() => {
+            if (search.length >= 2) {
+                handleSearch();
+            } else {
+                setSearchResults(null);
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search, handleSearch]);
 
-    // Filter logic
-    const filteredPlayers = players.filter(player => {
-        if (roleFilter === 'All') return true;
-        return player.role === roleFilter;
-    });
+    const loadMore = () => {
+        if (!loadingMore && hasMore) {
+            fetchPlayers(offset + 25, true);
+        }
+    };
+
+    const displayPlayers = searchResults !== null ? searchResults : players;
 
     return (
         <div className='min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200'>
@@ -92,12 +123,12 @@ const Dashboard = () => {
                             <div className="h-6 w-px bg-slate-700 mx-2"></div>
 
                             <button 
-                                onClick={scrapeData}
-                                disabled={loading}
-                                className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                                title="Refresh Database"
+                                onClick={syncAllFromApi}
+                                disabled={syncing}
+                                className="p-2 text-slate-400 hover:text-emerald-400 hover:bg-white/10 rounded-lg transition-colors"
+                                title="Sync All Players from Live API"
                             >
-                                <svg className={`w-6 h-6 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                <svg className={`w-6 h-6 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                             </button>
                             
                             <button 
@@ -148,8 +179,16 @@ const Dashboard = () => {
                     <div className="mb-8">
                         <h2 className="text-3xl font-bold text-white mb-2">Player Archive</h2>
                         <div className="flex items-center gap-3 mb-6">
-                            <span className="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded text-xs font-medium uppercase tracking-wider">Live Sync</span>
-                            <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-medium uppercase tracking-wider">{filteredPlayers.length} Records</span>
+                            <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-medium uppercase tracking-wider">Live API Data</span>
+                            <span className="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded text-xs font-medium uppercase tracking-wider">{filteredPlayers.length} Players</span>
+                            {dbStats && (
+                                <>
+                                    <span className="px-3 py-1 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded text-xs font-medium uppercase tracking-wider">{dbStats.countries} Countries</span>
+                                    {dbStats.lastSynced && (
+                                        <span className="text-xs text-slate-500">Last sync: {new Date(dbStats.lastSynced).toLocaleString()}</span>
+                                    )}
+                                </>
+                            )}
                         </div>
 
                         {/* Filter Bar Container */}
@@ -167,6 +206,20 @@ const Dashboard = () => {
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </div>
+
+                            {/* Live API Search Button */}
+                            <button
+                                onClick={searchLiveApi}
+                                disabled={searchingLive || !search || search.length < 2}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap"
+                            >
+                                {searchingLive ? (
+                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                ) : (
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 15.828a5 5 0 010-7.072m5.656 0a5 5 0 010 7.072M12 12h.01"></path></svg>
+                                )}
+                                Search Live API
+                            </button>
                             
                             {/* Divider */}
                             <div className="hidden md:block w-px h-8 bg-white/10 mx-2"></div>
@@ -176,13 +229,8 @@ const Dashboard = () => {
                                 className="flex items-center gap-1 w-full md:w-auto overflow-x-auto overflow-y-hidden pb-2 md:pb-0 px-2 md:px-0 no-scrollbar"
                                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                             >
-                                {/* Hide scrollbar for Chrome/Safari/Opera */}
-                                <style>{`
-                                    .no-scrollbar::-webkit-scrollbar {
-                                        display: none;
-                                    }
-                                `}</style>
-                                {['All', 'Batsman', 'Bowler', 'Allrounder', 'Wicketkeeper'].map((role) => (
+                                <style>{`.no-scrollbar::-webkit-scrollbar { display: none; }`}</style>
+                                {['All', 'Batsman', 'Batter', 'Bowler', 'Allrounder', 'All-Rounder', 'Wicketkeeper', 'WK-Batter'].map((role) => (
                                     <button
                                         key={role}
                                         onClick={() => setRoleFilter(role)}
@@ -199,10 +247,42 @@ const Dashboard = () => {
                         </div>
                     </div>
 
+                    {/* Live API Results */}
+                    {liveResults.length > 0 && (
+                        <div className="mb-8">
+                            <div className="flex items-center gap-3 mb-4">
+                                <h3 className="text-lg font-bold text-emerald-400">Live API Results</h3>
+                                <span className="text-xs text-slate-500">{liveResults.length} players synced from API</span>
+                                <button onClick={() => setLiveResults([])} className="text-xs text-slate-500 hover:text-red-400 ml-auto">Dismiss</button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {liveResults.map(player => (
+                                    <div key={player._id} className="transform transition-all duration-300 hover:-translate-y-1 ring-1 ring-emerald-500/30 rounded-2xl">
+                                        <PlayerCard player={player} />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Grid */}
                     {filteredPlayers.length === 0 ? (
                         <div className='text-center py-32 bg-white/5 rounded-3xl border-2 border-dashed border-white/10'>
-                            <p className='text-slate-400 text-lg'>No players found matching your criteria.</p>
+                            <div className="text-6xl mb-4">🏏</div>
+                            <p className='text-slate-300 text-lg font-semibold mb-2'>No players in database</p>
+                            <p className='text-slate-500 text-sm mb-6'>Search for players using the Live API or sync all popular players.</p>
+                            <button
+                                onClick={syncAllFromApi}
+                                disabled={syncing}
+                                className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all"
+                            >
+                                {syncing ? (
+                                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                ) : (
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                )}
+                                {syncing ? 'Syncing Players...' : 'Sync 60+ Players from Live API'}
+                            </button>
                         </div>
                     ) : (
                         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'>
