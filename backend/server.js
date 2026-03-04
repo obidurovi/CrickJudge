@@ -4,6 +4,7 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const playerRoutes = require('./routes/playerRoutes');
 const venueRoutes = require('./routes/venueRoutes');
+const matchRoutes = require('./routes/matchRoutes');
 const scrapePlayers = require('./utils/playerScraper');
 const scrapeVenues = require('./utils/venueScraper');
 
@@ -17,6 +18,7 @@ app.use(express.json());
 
 app.use('/api/players', playerRoutes);
 app.use('/api/venues', venueRoutes);
+app.use('/api/matches', matchRoutes);
 
 app.get('/', (req, res) => res.send('CrickJudge API is running'));
 
