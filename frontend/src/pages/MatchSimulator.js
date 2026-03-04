@@ -15,8 +15,9 @@ const MatchSimulator = () => {
     useEffect(() => {
         const fetchPlayers = async () => {
             try {
-                const { data } = await axios.get('http://localhost:5000/api/players');
-                setPlayers(data);
+                const { data } = await axios.get('http://localhost:5000/api/players?offset=0');
+                const list = data.players || data;
+                setPlayers(Array.isArray(list) ? list.filter(p => p.stats) : []);
             } catch (error) {
                 console.error("Error fetching players", error);
             }

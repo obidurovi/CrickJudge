@@ -39,6 +39,24 @@ const listPlayers = async (req, res) => {
         if (error.message.includes('CRICKET_API_KEY')) {
             return res.status(503).json({ message: 'API key not configured', code: 'API_KEY_MISSING' });
         }
+        if (error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Blocking') || error.message.includes('Blocked')) {
+            const offset = parseInt(req.query.offset) || 0;
+            const limit = 25;
+            const cachedPlayers = await Player.find({}).sort({ name: 1 }).skip(offset).limit(limit);
+            const totalCached = await Player.countDocuments();
+            if (cachedPlayers.length > 0) {
+                return res.json({
+                    players: cachedPlayers,
+                    total: totalCached,
+                    offset,
+                    perPage: limit,
+                    hasMore: offset + limit < totalCached,
+                    _cached: true,
+                    _notice: 'API rate limit reached. Showing cached players.'
+                });
+            }
+            return res.status(429).json({ message: 'API rate limit exceeded. Try again tomorrow.', code: 'RATE_LIMITED' });
+        }
         res.status(500).json({ message: error.message });
     }
 };
@@ -74,6 +92,15 @@ const searchPlayers = async (req, res) => {
     } catch (error) {
         if (error.message.includes('CRICKET_API_KEY')) {
             return res.status(503).json({ message: 'API key not configured', code: 'API_KEY_MISSING' });
+        }
+        if (error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Blocking') || error.message.includes('Blocked')) {
+            const { q } = req.query;
+            const regex = new RegExp(q, 'i');
+            const cachedPlayers = await Player.find({ name: regex }).limit(50);
+            if (cachedPlayers.length > 0) {
+                return res.json({ players: cachedPlayers, total: cachedPlayers.length, _cached: true, _notice: 'API rate limit reached. Showing cached results.' });
+            }
+            return res.status(429).json({ message: 'API rate limit exceeded. Try again tomorrow.', code: 'RATE_LIMITED' });
         }
         res.status(500).json({ message: error.message });
     }

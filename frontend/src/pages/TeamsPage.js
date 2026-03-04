@@ -1,90 +1,97 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import PlayerCard from '../components/PlayerCard';
 
-// Static Data for Leagues & Teams
-const LEAGUE_DATA = {
-    "IPL": ["Chennai Super Kings", "Delhi Capitals", "Gujarat Titans", "Kolkata Knight Riders", "Lucknow Super Giants", "Mumbai Indians", "Punjab Kings", "Royal Challengers Bangalore", "Rajasthan Royals", "Sunrisers Hyderabad"],
-    "BPL": ["Chattogram Challengers", "Comilla Victorians", "Durdanto Dhaka", "Fortune Barishal", "Khulna Tigers", "Rangpur Riders", "Sylhet Strikers"],
-    "PSL": ["Islamabad United", "Karachi Kings", "Lahore Qalandars", "Multan Sultans", "Peshawar Zalmi", "Quetta Gladiators"],
-    "BBL": ["Adelaide Strikers", "Brisbane Heat", "Hobart Hurricanes", "Melbourne Renegades", "Melbourne Stars", "Perth Scorchers", "Sydney Sixers", "Sydney Thunder"],
-    "The Hundred": ["Birmingham Phoenix", "London Spirit", "Manchester Originals", "Northern Superchargers", "Oval Invincibles", "Southern Brave", "Trent Rockets", "Welsh Fire"]
-};
+const API = 'http://localhost:5000/api/players';
 
 const TeamsPage = () => {
     const [players, setPlayers] = useState([]);
-    const [category, setCategory] = useState('International');
     const [selectedTeam, setSelectedTeam] = useState('All');
     const [search, setSearch] = useState('');
-    const [expandedLeagues, setExpandedLeagues] = useState({});
-    const [searchingLive, setSearchingLive] = useState(false);
+    const [searching, setSearching] = useState(false);
     const [countries, setCountries] = useState(['All']);
+    const [loading, setLoading] = useState(false);
+    const [offset, setOffset] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
+    const [total, setTotal] = useState(0);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [searchResults, setSearchResults] = useState(null);
 
-    useEffect(() => {
-        const fetchPlayers = async () => {
-            try {
-                const { data } = await axios.get('http://localhost:5000/api/players');
-                setPlayers(data);
-            } catch (error) {
-                console.error("Error fetching players", error);
+    const fetchPlayers = useCallback(async (newOffset = 0, append = false) => {
+        if (append) setLoadingMore(true);
+        else setLoading(true);
+        try {
+            const { data } = await axios.get(`${API}?offset=${newOffset}`);
+            if (append) {
+                setPlayers(prev => [...prev, ...(data.players || [])]);
+            } else {
+                setPlayers(data.players || []);
             }
-        };
-        const fetchCountries = async () => {
-            try {
-                const { data } = await axios.get('http://localhost:5000/api/players/countries');
-                setCountries(['All', ...data]);
-            } catch (error) {
-                const unique = [...new Set(players.map(p => p.country))].filter(Boolean).sort();
-                setCountries(['All', ...unique]);
-            }
-        };
-        fetchPlayers();
-        fetchCountries();
+            setTotal(data.total || 0);
+            setHasMore(data.hasMore || false);
+            setOffset(newOffset);
+        } catch (error) {
+            console.error("Error fetching players", error);
+        } finally {
+            setLoading(false);
+            setLoadingMore(false);
+        }
     }, []);
 
-    const searchLiveApi = async () => {
-        if (!search || search.length < 2) return;
-        setSearchingLive(true);
+    const fetchCountries = useCallback(async () => {
         try {
-            const { data } = await axios.get(`http://localhost:5000/api/players/search?q=${encodeURIComponent(search)}`);
-            if (data.data?.length) {
-                const existing = new Set(players.map(p => p._id));
-                const newPlayers = data.data.filter(p => !existing.has(p._id));
-                setPlayers(prev => [...newPlayers, ...prev]);
-            }
+            const { data } = await axios.get(`${API}/countries`);
+            setCountries(['All', ...data]);
+        } catch (error) {
+            const unique = [...new Set(players.map(p => p.country))].filter(Boolean).sort();
+            setCountries(['All', ...unique]);
+        }
+    }, [players]);
+
+    const handleSearch = useCallback(async () => {
+        if (!search || search.length < 2) {
+            setSearchResults(null);
+            return;
+        }
+        setSearching(true);
+        try {
+            const { data } = await axios.get(`${API}/search?q=${encodeURIComponent(search)}`);
+            setSearchResults(data.players || []);
         } catch (err) {
-            console.error('Live search failed:', err);
+            console.error('Search error:', err);
         } finally {
-            setSearchingLive(false);
+            setSearching(false);
+        }
+    }, [search]);
+
+    useEffect(() => {
+        fetchPlayers(0);
+        fetchCountries();
+    }, [fetchPlayers, fetchCountries]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (search.length >= 2) {
+                handleSearch();
+            } else {
+                setSearchResults(null);
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search, handleSearch]);
+
+    const loadMore = () => {
+        if (!loadingMore && hasMore) {
+            fetchPlayers(offset + 25, true);
         }
     };
 
-    const toggleLeague = (league) => {
-        setExpandedLeagues(prev => ({ ...prev, [league]: !prev[league] }));
-    };
+    const displayPlayers = searchResults !== null ? searchResults : players;
 
-    // Filter Logic
-    const filteredPlayers = players.filter(player => {
-        if (search && !player.name.toLowerCase().includes(search.toLowerCase())) return false;
-
-        if (category === 'International') {
-            if (selectedTeam === 'All') return true;
-            return player.country === selectedTeam;
-        } else {
-            // League Logic
-            if (selectedTeam === 'All') return true;
-
-            if (LEAGUE_DATA[selectedTeam]) {
-                return player.leagues && player.leagues[selectedTeam];
-            }
-
-            if (player.leagues) {
-                return Object.values(player.leagues).includes(selectedTeam);
-            }
-            
-            return false;
-        }
+    const filteredPlayers = displayPlayers.filter(player => {
+        if (selectedTeam === 'All') return true;
+        return player.country === selectedTeam;
     });
 
     return (
@@ -113,127 +120,43 @@ const TeamsPage = () => {
                 {/* Sidebar / Filter Panel */}
                 <aside className="w-full md:w-72 bg-slate-900/50 border-r border-white/5 p-6 flex flex-col gap-6 h-auto md:min-h-[calc(100vh-80px)]">
                     
-                    {/* Category Switcher */}
-                    <div className="bg-slate-800 p-1 rounded-xl flex">
-                        <button 
-                            onClick={() => { setCategory('International'); setSelectedTeam('All'); }}
-                            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${category === 'International' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-                        >
-                            Intl.
-                        </button>
-                        <button 
-                            onClick={() => { setCategory('Leagues'); setSelectedTeam('All'); }}
-                            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${category === 'Leagues' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-                        >
-                            Leagues
-                        </button>
-                    </div>
-
-                    {/* Search */}
                     <div className="relative">
                         <input 
                             type="text" 
-                            placeholder="Find player..." 
+                            placeholder="Search any player..." 
                             className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
-                    </div>
-                    <button
-                        onClick={searchLiveApi}
-                        disabled={searchingLive || !search || search.length < 2}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-xs font-bold rounded-lg transition-all"
-                    >
-                        {searchingLive ? (
-                            <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                        ) : (
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728"></path></svg>
+                        {searching && (
+                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                <svg className="w-4 h-4 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                            </div>
                         )}
-                        Search Live API
-                    </button>
+                    </div>
 
-                    {/* Team List */}
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
-                            {category === 'International' ? 'Countries' : 'Tournaments'}
-                        </h3>
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Countries</h3>
                         
                         <div className="space-y-1">
-                            {category === 'International' ? (
-                                countries.map(team => (
-                                    <button
-                                        key={team}
-                                        onClick={() => setSelectedTeam(team)}
-                                        className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all flex items-center justify-between group ${
-                                            selectedTeam === team 
-                                            ? 'bg-white/10 text-white border border-white/10 shadow-sm' 
-                                            : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                                        }`}
-                                    >
-                                        <span>{team}</span>
-                                        {team !== 'All' && (
-                                            <span className={`text-xs px-2 py-0.5 rounded-full ${selectedTeam === team ? 'bg-white text-slate-900' : 'bg-slate-800 text-slate-500 group-hover:bg-slate-700'}`}>
-                                                {players.filter(p => p.country === team).length}
-                                            </span>
-                                        )}
-                                    </button>
-                                ))
-                            ) : (
-                                <>
-                                    <button
-                                        onClick={() => setSelectedTeam('All')}
-                                        className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all mb-2 ${
-                                            selectedTeam === 'All' 
-                                            ? 'bg-white/10 text-white border border-white/10' 
-                                            : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                                        }`}
-                                    >
-                                        All Leagues
-                                    </button>
-                                    
-                                    {Object.keys(LEAGUE_DATA).map(league => (
-                                        <div key={league} className="mb-2">
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    onClick={() => toggleLeague(league)}
-                                                    className="p-2 text-slate-500 hover:text-white transition-colors"
-                                                >
-                                                    <svg className={`w-3 h-3 transition-transform ${expandedLeagues[league] ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
-                                                </button>
-                                                <button
-                                                    onClick={() => setSelectedTeam(league)}
-                                                    className={`flex-1 text-left py-2 rounded-lg text-sm font-bold uppercase tracking-wide transition-all ${
-                                                        selectedTeam === league 
-                                                        ? 'text-purple-400' 
-                                                        : 'text-slate-300 hover:text-white'
-                                                    }`}
-                                                >
-                                                    {league}
-                                                </button>
-                                            </div>
-
-                                            {/* Teams List */}
-                                            {expandedLeagues[league] && (
-                                                <div className="ml-6 space-y-1 border-l border-white/10 pl-2 mt-1">
-                                                    {LEAGUE_DATA[league].map(team => (
-                                                        <button
-                                                            key={team}
-                                                            onClick={() => setSelectedTeam(team)}
-                                                            className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all truncate ${
-                                                                selectedTeam === team 
-                                                                ? 'bg-purple-500/20 text-purple-200 border border-purple-500/30' 
-                                                                : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                                                            }`}
-                                                        >
-                                                            {team}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </>
-                            )}
+                            {countries.map(team => (
+                                <button
+                                    key={team}
+                                    onClick={() => setSelectedTeam(team)}
+                                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all flex items-center justify-between group ${
+                                        selectedTeam === team 
+                                        ? 'bg-white/10 text-white border border-white/10 shadow-sm' 
+                                        : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                                    }`}
+                                >
+                                    <span>{team}</span>
+                                    {team !== 'All' && (
+                                        <span className={`text-xs px-2 py-0.5 rounded-full ${selectedTeam === team ? 'bg-white text-slate-900' : 'bg-slate-800 text-slate-500 group-hover:bg-slate-700'}`}>
+                                            {displayPlayers.filter(p => p.country === team).length}
+                                        </span>
+                                    )}
+                                </button>
+                            ))}
                         </div>
                     </div>
                 </aside>
@@ -245,7 +168,7 @@ const TeamsPage = () => {
                     <div className="mb-8 flex items-end justify-between border-b border-white/10 pb-6">
                         <div>
                             <span className="text-blue-400 text-xs font-bold uppercase tracking-widest mb-1 block">
-                                {category} • {selectedTeam}
+                                {selectedTeam}
                             </span>
                             <h2 className="text-4xl font-bold text-white">
                                 {selectedTeam === 'All' ? 'All Players' : selectedTeam}
@@ -253,26 +176,39 @@ const TeamsPage = () => {
                         </div>
                         <div className="text-right">
                             <div className="text-3xl font-black text-white">{filteredPlayers.length}</div>
-                            <div className="text-xs text-slate-500 uppercase tracking-wider">Squad Size</div>
+                            <div className="text-xs text-slate-500 uppercase tracking-wider">Players</div>
                         </div>
                     </div>
 
-                    {/* Grid */}
-                    {filteredPlayers.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
-                            {filteredPlayers.map(player => (
-                                <PlayerCard key={player._id} player={player} />
-                            ))}
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-32">
+                            <div className="animate-spin w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
+                            <p className="text-slate-400">Loading players...</p>
                         </div>
+                    ) : filteredPlayers.length > 0 ? (
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
+                                {filteredPlayers.map((player, idx) => (
+                                    <PlayerCard key={player.apiId || player._id || idx} player={player} />
+                                ))}
+                            </div>
+                            {searchResults === null && hasMore && selectedTeam === 'All' && (
+                                <div className="mt-10 text-center">
+                                    <button
+                                        onClick={loadMore}
+                                        disabled={loadingMore}
+                                        className="inline-flex items-center gap-3 px-8 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-bold rounded-xl shadow-lg transition-all"
+                                    >
+                                        {loadingMore ? 'Loading...' : `Load More (${players.length} of ${total.toLocaleString()})`}
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     ) : (
                         <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/10 border-dashed">
                             <div className="text-6xl mb-4">🏏</div>
                             <h3 className="text-xl font-bold text-white">No Players Found</h3>
-                            <p className="text-slate-400 mt-2">
-                                {category === 'Leagues' 
-                                    ? "Try selecting a different team or league." 
-                                    : "Try adjusting your search or filters."}
-                            </p>
+                            <p className="text-slate-400 mt-2">Try adjusting your search or selecting a different country.</p>
                         </div>
                     )}
                 </main>

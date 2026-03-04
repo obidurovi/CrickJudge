@@ -27,10 +27,10 @@ const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
         }
     }, [isOpen]);
 
-    const selectedPlayer = players.find(p => p._id === selectedId);
+    const selectedPlayer = players.find(p => (p._id || p.apiId) === selectedId);
     const filteredPlayers = players.filter(p => 
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        p.role.toLowerCase().includes(searchTerm.toLowerCase())
+        (p.role || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
     
     const theme = {
@@ -112,12 +112,12 @@ const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
                         ) : (
                             filteredPlayers.map((player) => (
                                 <li
-                                    key={player._id}
+                                    key={player._id || player.apiId}
                                     onClick={() => {
-                                        onSelect(player._id);
+                                        onSelect(player._id || player.apiId);
                                         setIsOpen(false);
                                     }}
-                                    className={`cursor-pointer select-none relative px-3 py-2 mx-2 my-1 rounded-lg border border-transparent transition-all duration-150 group ${selectedId === player._id ? theme.itemSelected : theme.itemHover}`}
+                                    className={`cursor-pointer select-none relative px-3 py-2 mx-2 my-1 rounded-lg border border-transparent transition-all duration-150 group ${selectedId === (player._id || player.apiId) ? theme.itemSelected : theme.itemHover}`}
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className={`w-9 h-9 rounded-full bg-slate-800 flex-shrink-0 flex items-center justify-center text-xs font-bold text-slate-400 group-hover:text-white group-hover:bg-slate-700 transition-colors overflow-hidden border border-slate-700 ${selectedId === player._id ? `bg-gradient-to-br ${theme.avatar} text-white border-white/20` : ''}`}>
@@ -132,10 +132,10 @@ const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
                                                 {player.name}
                                             </span>
                                             <span className="text-[10px] text-slate-500 uppercase tracking-wider truncate">
-                                                {player.role} • {player.country}
+                                                {player.role || 'Unknown'} • {player.country}
                                             </span>
                                         </div>
-                                        {selectedId === player._id && (
+                                        {selectedId === (player._id || player.apiId) && (
                                             <div className="ml-auto">
                                                 <svg className={`h-5 w-5 ${theme.icon}`} viewBox="0 0 20 20" fill="currentColor">
                                                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -160,8 +160,9 @@ const CrickJudge = () => {
     useEffect(() => {
         const fetchPlayers = async () => {
             try {
-                const { data } = await axios.get('http://localhost:5000/api/players');
-                setPlayers(data);
+                const { data } = await axios.get('http://localhost:5000/api/players?offset=0');
+                const list = data.players || data;
+                setPlayers(Array.isArray(list) ? list.filter(p => p.stats && p.stats.matches) : []);
             } catch (error) {
                 console.error("Error fetching players", error);
             }
@@ -215,8 +216,8 @@ const CrickJudge = () => {
                                 label="Challenger (Blue)"
                                 color="blue"
                                 players={players}
-                                selectedId={p1?._id}
-                                onSelect={(id) => setP1(players.find(p => p._id === id))}
+                                selectedId={p1?._id || p1?.apiId}
+                                onSelect={(id) => setP1(players.find(p => (p._id || p.apiId) === id))}
                             />
                             
                             {p1 && (
@@ -275,8 +276,8 @@ const CrickJudge = () => {
                                 label="Opponent (Purple)"
                                 color="purple"
                                 players={players}
-                                selectedId={p2?._id}
-                                onSelect={(id) => setP2(players.find(p => p._id === id))}
+                                selectedId={p2?._id || p2?.apiId}
+                                onSelect={(id) => setP2(players.find(p => (p._id || p.apiId) === id))}
                             />
 
                             {p2 && (
