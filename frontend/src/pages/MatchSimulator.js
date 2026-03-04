@@ -27,27 +27,21 @@ const MatchSimulator = () => {
     const simulateBall = (ballNum) => {
         if (!batsman || !bowler) return;
 
-        // Simple probability logic
-        // Higher SR = higher chance of boundaries but also wickets
-        // Lower Eco = lower runs
-        
-        const batFactor = batsman.stats.strikeRate / 100; // e.g., 1.4
-        const bowlFactor = (12 - bowler.stats.economy) / 10; // e.g., (12-6)/10 = 0.6 (Good bowler reduces runs)
+        const batFactor = batsman.stats.strikeRate / 100;
+        const bowlFactor = (12 - bowler.stats.economy) / 10;
         
         const random = Math.random();
         let outcome = 0;
         let text = "";
         let isWicket = false;
 
-        // Wicket Probability
-        const wicketProb = 0.05 + (0.05 * (1/batFactor)) + (0.05 * bowlFactor); 
+        const wicketProb = 0.05 + (0.05 * (1/batFactor)) + (0.05 * bowlFactor);
 
         if (random < wicketProb) {
             outcome = 0;
             text = "WICKET!";
             isWicket = true;
         } else {
-            // Run scoring logic
             const runRandom = Math.random() * batFactor * (1.5 - bowlFactor);
             
             if (runRandom > 0.95) { outcome = 6; text = "SIX!"; }
@@ -72,9 +66,9 @@ const MatchSimulator = () => {
         let logs = [];
 
         for (let i = 1; i <= 6; i++) {
-            if (currentWickets >= 10) break; // All out logic (though 1v1)
+            if (currentWickets >= 10) break;
 
-            await new Promise(r => setTimeout(r, 800)); // Delay for effect
+            await new Promise(r => setTimeout(r, 800));
             
             const result = simulateBall(i);
             logs.push(result);
@@ -204,7 +198,6 @@ const MatchSimulator = () => {
                                     {log.isWicket ? 'W' : log.runs}
                                 </div>
                             ))}
-                            {/* Placeholders for remaining balls */}
                             {[...Array(6 - matchLog.length)].map((_, i) => (
                                 <div key={i} className="w-12 h-12 rounded-full border-2 border-slate-800 bg-slate-900/50"></div>
                             ))}

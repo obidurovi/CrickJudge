@@ -1,7 +1,6 @@
 const Player = require('../models/Player');
-const scrapePlayers = require('../utils/playerScraper'); // Updated import path
+const scrapePlayers = require('../utils/playerScraper');
 
-// @desc    Get all players
 const getPlayers = async (req, res) => {
     try {
         const players = await Player.find({});
@@ -11,7 +10,6 @@ const getPlayers = async (req, res) => {
     }
 };
 
-// @desc    Scrape players manually (if needed via controller)
 const refreshPlayers = async (req, res) => {
     try {
         await scrapePlayers();

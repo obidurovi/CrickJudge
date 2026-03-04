@@ -15,10 +15,9 @@ const playerSchema = new mongoose.Schema({
         economy: Number,
         strikeRate: Number
     },
-    // New field to store league teams dynamically
     leagues: {
         type: Map,
-        of: String, // Key: League Name (IPL), Value: Team Name (CSK)
+        of: String,
         default: {}
     }
 });

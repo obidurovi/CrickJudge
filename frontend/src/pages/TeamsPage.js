@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import PlayerCard from '../components/PlayerCard';
 
-// --- Static Data for Leagues & Teams ---
+// Static Data for Leagues & Teams
 const LEAGUE_DATA = {
     "IPL": ["Chennai Super Kings", "Delhi Capitals", "Gujarat Titans", "Kolkata Knight Riders", "Lucknow Super Giants", "Mumbai Indians", "Punjab Kings", "Royal Challengers Bangalore", "Rajasthan Royals", "Sunrisers Hyderabad"],
     "BPL": ["Chattogram Challengers", "Comilla Victorians", "Durdanto Dhaka", "Fortune Barishal", "Khulna Tigers", "Rangpur Riders", "Sylhet Strikers"],
@@ -14,17 +14,16 @@ const LEAGUE_DATA = {
 
 const TeamsPage = () => {
     const [players, setPlayers] = useState([]);
-    const [category, setCategory] = useState('International'); // 'International' or 'Leagues'
+    const [category, setCategory] = useState('International');
     const [selectedTeam, setSelectedTeam] = useState('All');
     const [search, setSearch] = useState('');
-    const [expandedLeagues, setExpandedLeagues] = useState({}); // For accordion
+    const [expandedLeagues, setExpandedLeagues] = useState({});
 
     useEffect(() => {
         const fetchPlayers = async () => {
             try {
                 const { data } = await axios.get('http://localhost:5000/api/players');
                 setPlayers(data);
-                // Removed auto-selection of first country so it defaults to 'All'
             } catch (error) {
                 console.error("Error fetching players", error);
             }
@@ -32,7 +31,7 @@ const TeamsPage = () => {
         fetchPlayers();
     }, []);
 
-    // Extract unique countries: Sort first, then add 'All' at the beginning
+    // Extract unique countries
     const uniqueCountries = [...new Set(players.map(p => p.country))].sort();
     const countries = ['All', ...uniqueCountries];
 
@@ -43,10 +42,8 @@ const TeamsPage = () => {
 
     // Filter Logic
     const filteredPlayers = players.filter(player => {
-        // 1. Search Filter
         if (search && !player.name.toLowerCase().includes(search.toLowerCase())) return false;
 
-        // 2. Category & Team Filter
         if (category === 'International') {
             if (selectedTeam === 'All') return true;
             return player.country === selectedTeam;
@@ -54,14 +51,10 @@ const TeamsPage = () => {
             // League Logic
             if (selectedTeam === 'All') return true;
 
-            // Check if selectedTeam is a League Name (e.g. "IPL")
             if (LEAGUE_DATA[selectedTeam]) {
-                // Check if player has an entry for this league in their DB record
                 return player.leagues && player.leagues[selectedTeam];
             }
 
-            // Check if selectedTeam is a specific Team Name (e.g. "Chennai Super Kings")
-            // We need to check if ANY value in player.leagues matches selectedTeam
             if (player.leagues) {
                 return Object.values(player.leagues).includes(selectedTeam);
             }
@@ -150,7 +143,6 @@ const TeamsPage = () => {
                                     </button>
                                 ))
                             ) : (
-                                // League Accordion Structure
                                 <>
                                     <button
                                         onClick={() => setSelectedTeam('All')}
@@ -184,7 +176,7 @@ const TeamsPage = () => {
                                                 </button>
                                             </div>
 
-                                            {/* Teams List (Accordion Content) */}
+                                            {/* Teams List */}
                                             {expandedLeagues[league] && (
                                                 <div className="ml-6 space-y-1 border-l border-white/10 pl-2 mt-1">
                                                     {LEAGUE_DATA[league].map(team => (

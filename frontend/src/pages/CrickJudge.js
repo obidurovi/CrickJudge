@@ -2,14 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
-// --- Advanced Searchable Dropdown ---
 const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const dropdownRef = useRef(null);
     const searchInputRef = useRef(null);
 
-    // Close dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -20,13 +18,12 @@ const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Focus search input when opened
     useEffect(() => {
         if (isOpen && searchInputRef.current) {
             searchInputRef.current.focus();
         }
         if (!isOpen) {
-            setSearchTerm(''); // Reset search on close
+            setSearchTerm('');
         }
     }, [isOpen]);
 
@@ -36,7 +33,6 @@ const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
         p.role.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
-    // Theme Configuration
     const theme = {
         blue: {
             label: 'text-blue-400',
@@ -61,7 +57,6 @@ const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
             <label className={`block ${theme.label} text-xs font-bold mb-2 uppercase tracking-widest`}>
                 {label}
             </label>
-            
             {/* Trigger Button */}
             <button 
                 onClick={() => setIsOpen(!isOpen)}
@@ -91,11 +86,9 @@ const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
                     </svg>
                 </span>
             </button>
-
             {/* Dropdown Menu */}
             {isOpen && (
                 <div className="absolute z-50 mt-2 w-full bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-fade-in-down origin-top ring-1 ring-black/5">
-                    
                     {/* Search Bar */}
                     <div className="p-2 border-b border-slate-800 sticky top-0 bg-slate-900/95 z-10">
                         <div className="relative">
@@ -112,7 +105,6 @@ const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
                             />
                         </div>
                     </div>
-
                     {/* List Items */}
                     <ul className="max-h-64 overflow-y-auto custom-scrollbar py-1">
                         {filteredPlayers.length === 0 ? (
@@ -160,8 +152,6 @@ const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
         </div>
     );
 };
-
-// --- Main Page Component ---
 const CrickJudge = () => {
     const [players, setPlayers] = useState([]);
     const [p1, setP1] = useState(null);
@@ -179,18 +169,16 @@ const CrickJudge = () => {
         fetchPlayers();
     }, []);
 
-    // Normalize data for Radar Chart (0-100 scale)
     const getChartData = () => {
         if (!p1 || !p2) return [];
         
-        // Helper to normalize stats roughly to 100
         const norm = (val, max) => (val / max) * 100;
 
         return [
             { subject: 'Batting Avg', A: norm(p1.stats.average, 60), B: norm(p2.stats.average, 60), fullMark: 100 },
             { subject: 'Strike Rate', A: norm(p1.stats.strikeRate, 160), B: norm(p2.stats.strikeRate, 160), fullMark: 100 },
             { subject: 'Wickets', A: norm(p1.stats.wickets, 600), B: norm(p2.stats.wickets, 600), fullMark: 100 },
-            { subject: 'Economy', A: 100 - norm(p1.stats.economy, 12), B: 100 - norm(p2.stats.economy, 12), fullMark: 100 }, // Lower is better
+            { subject: 'Economy', A: 100 - norm(p1.stats.economy, 12), B: 100 - norm(p2.stats.economy, 12), fullMark: 100 },
             { subject: 'Experience', A: norm(p1.stats.matches, 500), B: norm(p2.stats.matches, 500), fullMark: 100 },
         ];
     };
@@ -223,8 +211,6 @@ const CrickJudge = () => {
                     {/* Player 1 Selector */}
                     <div className="lg:col-span-3 space-y-6">
                         <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-xl">
-                            
-                            {/* Custom Dropdown for Player 1 */}
                             <PlayerDropdown 
                                 label="Challenger (Blue)"
                                 color="blue"
@@ -250,7 +236,6 @@ const CrickJudge = () => {
                             )}
                         </div>
                     </div>
-
                     {/* Main Arena (Chart) */}
                     <div className="lg:col-span-6">
                         <div className="bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 p-6 flex items-center justify-center min-h-[500px] relative overflow-hidden shadow-2xl">
@@ -286,8 +271,6 @@ const CrickJudge = () => {
                     {/* Player 2 Selector */}
                     <div className="lg:col-span-3 space-y-6">
                         <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-xl">
-                            
-                            {/* Custom Dropdown for Player 2 */}
                             <PlayerDropdown 
                                 label="Opponent (Purple)"
                                 color="purple"

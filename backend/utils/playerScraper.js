@@ -1,8 +1,7 @@
-const Player = require('../models/Player');
+﻿const Player = require('../models/Player');
 
 const scrapePlayers = async () => {
     const mockPlayers = [
-        // ================= INDIA =================
         { 
             name: 'Virat Kohli', country: 'India', role: 'Batsman', battingStyle: 'Right-hand bat', bowlingStyle: 'Right-arm medium', 
             image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316605.png",
@@ -94,7 +93,6 @@ const scrapePlayers = async () => {
             leagues: { "IPL": "Delhi Capitals" }
         },
 
-        // ================= AUSTRALIA =================
         { 
             name: 'David Warner', country: 'Australia', role: 'Batsman', battingStyle: 'Left-hand bat', bowlingStyle: 'Legbreak', 
             image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316679.png",
@@ -144,7 +142,6 @@ const scrapePlayers = async () => {
             leagues: { "IPL": "Rajasthan Royals", "BBL": "Melbourne Renegades" }
         },
 
-        // ================= ENGLAND =================
         { 
             name: 'Jos Buttler', country: 'England', role: 'Wicketkeeper', battingStyle: 'Right-hand bat', bowlingStyle: 'None', 
             image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316637.png",
@@ -194,7 +191,6 @@ const scrapePlayers = async () => {
             leagues: { "The Hundred": "Northern Superchargers" }
         },
 
-        // ================= WEST INDIES =================
         { 
             name: 'Andre Russell', country: 'West Indies', role: 'Allrounder', battingStyle: 'Right-hand bat', bowlingStyle: 'Right-arm fast', 
             image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316696.png",
@@ -232,7 +228,6 @@ const scrapePlayers = async () => {
             leagues: { "IPL": "Rajasthan Royals", "PSL": "Peshawar Zalmi" }
         },
 
-        // ================= BANGLADESH =================
         { 
             name: 'Shakib Al Hasan', country: 'Bangladesh', role: 'Allrounder', battingStyle: 'Left-hand bat', bowlingStyle: 'Slow Left arm Orthodox', 
             image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316690.png",
@@ -264,7 +259,6 @@ const scrapePlayers = async () => {
             leagues: { "BPL": "Fortune Barishal" }
         },
 
-        // ================= AFGHANISTAN =================
         { 
             name: 'Rashid Khan', country: 'Afghanistan', role: 'Bowler', battingStyle: 'Right-hand bat', bowlingStyle: 'Legbreak Googly', 
             image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316668.png",
@@ -284,7 +278,6 @@ const scrapePlayers = async () => {
             leagues: { "IPL": "Kolkata Knight Riders", "PSL": "Islamabad United" }
         },
 
-        // ================= PAKISTAN =================
         { 
             name: 'Babar Azam', country: 'Pakistan', role: 'Batsman', battingStyle: 'Right-hand bat', bowlingStyle: 'Right-arm offbreak', 
             image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/320400/320448.png",
@@ -316,7 +309,6 @@ const scrapePlayers = async () => {
             leagues: { "PSL": "Lahore Qalandars", "BBL": "Melbourne Stars" }
         },
 
-        // ================= NEW ZEALAND =================
         { 
             name: 'Kane Williamson', country: 'New Zealand', role: 'Batsman', battingStyle: 'Right-hand bat', bowlingStyle: 'Right-arm offbreak', 
             image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316651.png",
@@ -342,7 +334,6 @@ const scrapePlayers = async () => {
             leagues: { "IPL": "Chennai Super Kings" }
         },
 
-        // ================= SOUTH AFRICA =================
         { 
             name: 'Quinton de Kock', country: 'South Africa', role: 'Wicketkeeper', battingStyle: 'Left-hand bat', bowlingStyle: 'None', 
             image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316660.png",
@@ -374,7 +365,6 @@ const scrapePlayers = async () => {
             leagues: { "IPL": "Gujarat Titans" }
         },
 
-        // ================= SRI LANKA =================
         { 
             name: 'Wanindu Hasaranga', country: 'Sri Lanka', role: 'Allrounder', battingStyle: 'Right-hand bat', bowlingStyle: 'Legbreak', 
             image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316655.png",
@@ -394,7 +384,6 @@ const scrapePlayers = async () => {
             leagues: { "IPL": "Chennai Super Kings" }
         },
 
-        // ================= ZIMBABWE =================
         { 
             name: 'Sikandar Raza', country: 'Zimbabwe', role: 'Allrounder', battingStyle: 'Right-hand bat', bowlingStyle: 'Right-arm offbreak', 
             image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316687.png",
@@ -408,7 +397,6 @@ const scrapePlayers = async () => {
             leagues: { "BPL": "Chattogram Challengers" }
         },
 
-        // ================= IRELAND =================
         { 
             name: 'Paul Stirling', country: 'Ireland', role: 'Batsman', battingStyle: 'Right-hand bat', bowlingStyle: 'Right-arm offbreak', 
             image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316645.png",
@@ -422,7 +410,6 @@ const scrapePlayers = async () => {
             leagues: { "IPL": "Gujarat Titans", "The Hundred": "Manchester Originals" }
         },
 
-        // ================= NETHERLANDS =================
         { 
             name: 'Bas de Leede', country: 'Netherlands', role: 'Allrounder', battingStyle: 'Right-hand bat', bowlingStyle: 'Right-arm fast-medium', 
             image: "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_320,q_50/lsci/db/PICTURES/CMS/316600/316648.png",

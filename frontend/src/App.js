@@ -4,11 +4,9 @@ import Dashboard from './pages/Dashboard';
 import CrickJudge from './pages/CrickJudge';
 import AnalyticsHub from './pages/AnalyticsHub';
 import MatchSimulator from './pages/MatchSimulator';
-import TeamsPage from './pages/TeamsPage'; // Import the new page
+import TeamsPage from './pages/TeamsPage';
 import VenueIntelligence from './pages/VenueIntelligence';
 
-
-// Sidebar Component
 const Sidebar = () => {
   const location = useLocation();
   const isActive = (path) => location.pathname === path ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-slate-800 hover:text-white';
@@ -27,7 +25,6 @@ const Sidebar = () => {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
           Dashboard
         </Link>
-        {/* Updated Link */}
         <Link to="/crickjudge" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/crickjudge')}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
           CrickJudge
@@ -41,12 +38,10 @@ const Sidebar = () => {
           Match Simulator
         </Link>
         <Link to="/teams" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/teams')}`}>
-          {/* Changed to Shield Icon */}
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01"></path></svg>
           Teams
         </Link>
         
-        {/* Venue Intelligence - Fixed Design */}
         <Link to="/venue-intelligence" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/venue-intelligence')}`}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -54,8 +49,6 @@ const Sidebar = () => {
             </svg>
             <span className="font-medium">Venue Intelligence</span>
           </Link>
-
-        {/* Team Builder Removed */}
       </nav>
 
       <div className="p-4">
@@ -82,7 +75,7 @@ function App() {
             <Route path="/crickjudge" element={<CrickJudge />} />
             <Route path="/analytics" element={<AnalyticsHub />} />
             <Route path="/simulator" element={<MatchSimulator />} />
-            <Route path="/teams" element={<TeamsPage />} /> {/* Add Route */}
+            <Route path="/teams" element={<TeamsPage />} />
             <Route path="/venue-intelligence" element={<VenueIntelligence />} />
           </Routes>
         </div>

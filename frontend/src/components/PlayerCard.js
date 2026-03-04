@@ -1,7 +1,6 @@
 import React from 'react';
 
 const PlayerCard = ({ player }) => {
-  // Using semi-transparent backgrounds for roles to blend with glass effect
   const roleColor = {
     'Batsman': 'bg-blue-500/20 text-blue-200 border-blue-500/30',
     'Bowler': 'bg-rose-500/20 text-rose-200 border-rose-500/30',
@@ -10,12 +9,10 @@ const PlayerCard = ({ player }) => {
   };
 
   return (
-    // Glassmorphism Card Container
     <div className='bg-white/5 backdrop-blur-md rounded-2xl p-5 border border-white/10 shadow-xl hover:bg-white/10 hover:border-white/20 transition-all duration-300 h-full flex flex-col group'>
       
       <div className='flex items-start justify-between mb-4'>
         <div className='flex items-center space-x-4'>
-            {/* Avatar with gradient */}
             <div className='h-14 w-14 bg-gradient-to-br from-white/10 to-white/5 rounded-2xl flex items-center justify-center text-2xl font-bold text-white border border-white/10 shadow-inner'>
                 {player.name.charAt(0)}
             </div>
@@ -36,7 +33,6 @@ const PlayerCard = ({ player }) => {
         </span>
       </div>
 
-      {/* Stats Grid - Transparent backgrounds */}
       <div className='mt-auto grid grid-cols-2 gap-3 text-sm'>
         <div className='bg-black/20 p-2.5 rounded-xl border border-white/5'>
             <p className='text-xs text-slate-400 mb-1'>Runs</p>

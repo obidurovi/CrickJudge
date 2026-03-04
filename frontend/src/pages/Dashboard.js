@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import PlayerCard from '../components/PlayerCard';
@@ -7,20 +7,18 @@ const Dashboard = () => {
     const [players, setPlayers] = useState([]);
     const [team, setTeam] = useState([]);
     const [search, setSearch] = useState('');
-    const [roleFilter, setRoleFilter] = useState('All'); // New state for filter
+    const [roleFilter, setRoleFilter] = useState('All');
     const [loading, setLoading] = useState(false);
 
-    // Fetch players from Backend
-    const fetchPlayers = async () => {
+    const fetchPlayers = useCallback(async () => {
         try {
             const { data } = await axios.get(`http://localhost:5000/api/players?search=${search}`);
             setPlayers(data);
         } catch (error) {
             console.error('Error fetching players:', error);
         }
-    };
+    }, [search]);
 
-    // Trigger Scraper
     const scrapeData = async () => {
         setLoading(true);
         try {
@@ -33,7 +31,6 @@ const Dashboard = () => {
         setLoading(false);
     };
 
-    // Generate Best Team
     const generateTeam = async () => {
         try {
             const { data } = await axios.get('http://localhost:5000/api/players/generate-team');
@@ -46,8 +43,7 @@ const Dashboard = () => {
 
     useEffect(() => {
         fetchPlayers();
-        // eslint-disable-next-line
-    }, [search]);
+    }, [search, fetchPlayers]);
 
     // Filter logic
     const filteredPlayers = players.filter(player => {
@@ -63,7 +59,7 @@ const Dashboard = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-20">
                         
-                        {/* Logo Section */}
+            {/* Logo Section */}
                         <div className="flex-shrink-0 flex items-center gap-3">
                             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
                                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
@@ -74,9 +70,8 @@ const Dashboard = () => {
                             </div>
                         </div>
 
-                        {/* Right: Action Buttons */}
+                        {/* Action Buttons */}
                         <div className="flex items-center gap-3">
-                            {/* Navigation Links */}
                             <Link to="/teams" className="hidden md:flex items-center gap-2 px-3 py-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-sm font-medium">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 Teams
@@ -148,7 +143,7 @@ const Dashboard = () => {
                     </section>
                 )}
 
-                {/* Database Section - Redesigned */}
+                {/* Database Section */}
                 <section>
                     <div className="mb-8">
                         <h2 className="text-3xl font-bold text-white mb-2">Player Archive</h2>

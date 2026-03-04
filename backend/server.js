@@ -1,9 +1,9 @@
 const express = require('express');
 const dotenv = require('dotenv');
-const cors = require('cors'); // Import CORS
+const cors = require('cors');
 const connectDB = require('./config/db');
 const playerRoutes = require('./routes/playerRoutes');
-const venueRoutes = require('./routes/venueRoutes'); // Import this
+const venueRoutes = require('./routes/venueRoutes');
 const scrapePlayers = require('./utils/playerScraper');
 const scrapeVenues = require('./utils/venueScraper');
 
@@ -12,24 +12,19 @@ connectDB();
 
 const app = express();
 
-app.use(cors()); // Enable CORS for Frontend access
+app.use(cors());
 app.use(express.json());
 
-// Mount Routes
 app.use('/api/players', playerRoutes);
-app.use('/api/venues', venueRoutes); // Add this line
+app.use('/api/venues', venueRoutes);
 
 app.get('/', (req, res) => res.send('CrickJudge API is running'));
 
-// Scrape Data Endpoint
 app.get('/api/scrape', async (req, res) => {
     try {
         console.log('Starting database refresh...');
-        
-        // Run both scrapers
         await scrapePlayers();
         await scrapeVenues();
-        
         res.json({ message: "All databases (Players & Venues) refreshed successfully!" });
     } catch (error) {
         console.error('Scraping Error:', error);
