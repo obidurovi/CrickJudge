@@ -1,6 +1,7 @@
 const Player = require('../models/Player');
 const cricketApi = require('../utils/cricketApi');
 const { syncPlayerFromApi } = require('../utils/playerSync');
+const { getTeamPlayers, syncTeamFromApi, INTERNATIONAL_TEAMS } = require('../utils/teamSync');
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
@@ -128,59 +129,95 @@ const getPlayerDetail = async (req, res) => {
     }
 };
 
+/**
+ * Get all players for a team — fetches from live CricAPI, caches in MongoDB.
+ */
 const getPlayersByTeam = async (req, res) => {
     try {
         const { country } = req.params;
-        const offset = parseInt(req.query.offset) || 0;
-        const limit = 50;
 
-        // Try cache first
-        const regex = new RegExp(`^${country.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
-        const cachedPlayers = await Player.find({ country: regex }).sort({ name: 1 }).skip(offset).limit(limit);
-        const totalCached = await Player.countDocuments({ country: regex });
+        const result = await getTeamPlayers(country);
 
-        if (cachedPlayers.length > 0) {
-            return res.json({
-                players: cachedPlayers,
-                total: totalCached,
-                offset,
-                hasMore: offset + limit < totalCached,
-                source: 'cache'
-            });
+        return res.json({
+            players: result.players,
+            total: result.total,
+            offset: 0,
+            hasMore: false,
+            fromCache: result.fromCache || false,
+            syncing: result.syncing || false,
+            lastSynced: result.lastSynced || null,
+            source: 'api'
+        });
+    } catch (error) {
+        if (error.message && (error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Block'))) {
+            // Rate limited — try to serve from DB cache
+            const regex = new RegExp(`^${req.params.country.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+            const cachedPlayers = await Player.find({ country: regex }).sort({ name: 1 });
+            if (cachedPlayers.length > 0) {
+                return res.json({
+                    players: cachedPlayers,
+                    total: cachedPlayers.length,
+                    offset: 0,
+                    hasMore: false,
+                    fromCache: true,
+                    source: 'cache',
+                    _notice: 'API rate limit reached. Showing cached players.'
+                });
+            }
+            return res.status(429).json({ message: 'API rate limit exceeded and no cached data available.', code: 'RATE_LIMITED' });
+        }
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Trigger a manual sync for a specific team (POST /api/players/sync-team/:country)
+ */
+const syncTeam = async (req, res) => {
+    try {
+        const { country } = req.params;
+        const result = await syncTeamFromApi(country, { fetchDetails: true, maxDetailFetches: 50 });
+
+        return res.json({
+            message: `Synced ${result.total} players for ${country}`,
+            total: result.total,
+            detailsSynced: result.synced,
+            fromCache: result.fromCache
+        });
+    } catch (error) {
+        if (error.message && (error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Block'))) {
+            return res.status(429).json({ message: 'API rate limit exceeded.', code: 'RATE_LIMITED' });
+        }
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Get the list of all international teams with player counts from the DB.
+ */
+const getTeamsList = async (req, res) => {
+    try {
+        // Get player counts from DB for each known team
+        const countPipeline = [
+            { $match: { country: { $ne: null } } },
+            { $group: { _id: '$country', count: { $sum: 1 } } },
+            { $sort: { _id: 1 } }
+        ];
+        const dbCounts = await Player.aggregate(countPipeline);
+        const dbCountMap = new Map(dbCounts.map(c => [c._id, c.count]));
+
+        // Build team list — include all international teams, plus any from DB
+        const teamSet = new Set(INTERNATIONAL_TEAMS);
+        for (const [country] of dbCountMap) {
+            teamSet.add(country);
         }
 
-        // Fallback: search API by country name
-        try {
-            const data = await cricketApi.listPlayers(0, country);
-            const apiPlayers = (data.data || []).filter(p =>
-                p.country && p.country.toLowerCase().includes(country.toLowerCase())
-            );
+        const teams = [...teamSet].sort().map(name => ({
+            name,
+            playerCount: dbCountMap.get(name) || 0
+        }));
 
-            const apiIds = apiPlayers.map(p => p.id);
-            const cached = await Player.find({ apiId: { $in: apiIds } });
-            const cacheMap = new Map(cached.map(p => [p.apiId, p]));
-
-            const players = apiPlayers.map(p => {
-                if (cacheMap.has(p.id)) return cacheMap.get(p.id);
-                return {
-                    apiId: p.id,
-                    name: p.name,
-                    country: p.country || country,
-                    source: 'api',
-                    _isBasic: true
-                };
-            });
-
-            return res.json({
-                players,
-                total: players.length,
-                offset: 0,
-                hasMore: false,
-                source: 'api'
-            });
-        } catch (apiErr) {
-            return res.json({ players: [], total: 0, offset: 0, hasMore: false });
-        }
+        res.json(teams);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -189,10 +226,12 @@ const getPlayersByTeam = async (req, res) => {
 const getPlayerCountries = async (req, res) => {
     try {
         const countries = await Player.distinct('country');
-        res.json(countries.filter(c => c && c !== 'Unknown').sort());
+        // Include all known international teams even if not in DB yet
+        const allCountries = new Set([...countries.filter(c => c && c !== 'Unknown'), ...INTERNATIONAL_TEAMS]);
+        res.json([...allCountries].sort());
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-module.exports = { listPlayers, searchPlayers, getPlayerDetail, getPlayerCountries, getPlayersByTeam };
+module.exports = { listPlayers, searchPlayers, getPlayerDetail, getPlayerCountries, getPlayersByTeam, getTeamsList, syncTeam };

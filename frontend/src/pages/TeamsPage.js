@@ -55,6 +55,22 @@ const TeamsPage = () => {
     const [total, setTotal] = useState(0);
     const [loadingMore, setLoadingMore] = useState(false);
     const [cachedRosters, setCachedRosters] = useState({});
+    const [teamCounts, setTeamCounts] = useState({});
+
+    // Fetch team player counts on mount
+    useEffect(() => {
+        const fetchCounts = async () => {
+            try {
+                const { data } = await axios.get(`${API}/teams-list`);
+                const counts = {};
+                (data || []).forEach(t => { counts[t.name] = t.playerCount; });
+                setTeamCounts(counts);
+            } catch (err) {
+                console.error('Error fetching team counts:', err);
+            }
+        };
+        fetchCounts();
+    }, []);
 
     const selectTeam = (team) => {
         setSelectedTeam(team);
@@ -82,12 +98,31 @@ const TeamsPage = () => {
         setSearchResults(null);
     };
 
+    const [syncStatus, setSyncStatus] = useState(null); // null | 'syncing' | 'done' | 'error' | 'rate-limited'
+    const [notice, setNotice] = useState(null);
+
     const fetchTeamPlayers = useCallback(async (country, newOffset = 0, append = false) => {
         if (append) setLoadingMore(true);
         else setLoading(true);
+        setSyncStatus(null);
+        setNotice(null);
         try {
             const { data } = await axios.get(`${API}/team/${encodeURIComponent(country)}?offset=${newOffset}`);
             const fetchedPlayers = data.players || [];
+
+            // Track sync status from backend
+            if (data.syncing) {
+                setSyncStatus('syncing');
+            } else if (data.fromCache) {
+                setSyncStatus('done');
+            } else {
+                setSyncStatus('done');
+            }
+
+            if (data._notice) {
+                setNotice(data._notice);
+            }
+
             if (append) {
                 setPlayers(prev => {
                     const merged = [...prev, ...fetchedPlayers];
@@ -101,8 +136,31 @@ const TeamsPage = () => {
             setTotal(data.total || 0);
             setHasMore(data.hasMore || false);
             setOffset(newOffset);
+
+            // If backend indicated it's syncing in background, poll for updates after a delay
+            if (data.syncing) {
+                setTimeout(async () => {
+                    try {
+                        const { data: refreshed } = await axios.get(`${API}/team/${encodeURIComponent(country)}`);
+                        if (refreshed.players && refreshed.players.length > fetchedPlayers.length) {
+                            setPlayers(refreshed.players);
+                            setTotal(refreshed.total || 0);
+                            setCachedRosters(c => ({ ...c, [country]: { players: refreshed.players, total: refreshed.total || 0, hasMore: false } }));
+                        }
+                        setSyncStatus('done');
+                    } catch (e) {
+                        // Ignore poll errors
+                    }
+                }, 10000);
+            }
         } catch (err) {
             console.error('Error fetching team players:', err);
+            if (err.response?.status === 429) {
+                setSyncStatus('rate-limited');
+                setNotice('API rate limit reached. Showing cached data if available.');
+            } else {
+                setSyncStatus('error');
+            }
         } finally {
             setLoading(false);
             setLoadingMore(false);
@@ -249,6 +307,11 @@ const TeamsPage = () => {
                                                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
                                                     Full Member
                                                 </span>
+                                                {teamCounts[team.name] && (
+                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-slate-300 font-medium">
+                                                        {teamCounts[team.name]} players
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="mt-3 flex items-center text-xs text-slate-500 group-hover:text-slate-400 transition-colors">
                                                 <span>View Squad</span>
@@ -289,6 +352,11 @@ const TeamsPage = () => {
                                                 <span className="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/20 font-semibold">
                                                     Associate
                                                 </span>
+                                                {teamCounts[team.name] && (
+                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-slate-300 font-medium">
+                                                        {teamCounts[team.name]} players
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="mt-3 flex items-center text-xs text-slate-500 group-hover:text-slate-400 transition-colors">
                                                 <span>View Squad</span>
@@ -371,10 +439,32 @@ const TeamsPage = () => {
 
             {/* Players Grid */}
             <div className="max-w-7xl mx-auto px-6 py-8">
+
+                {/* Sync Status Banner */}
+                {syncStatus === 'syncing' && (
+                    <div className="mb-6 flex items-center gap-3 px-5 py-3 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-300 text-sm">
+                        <svg className="w-4 h-4 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                        <span>Syncing latest player data from live API... Showing cached data while updating.</span>
+                    </div>
+                )}
+                {syncStatus === 'rate-limited' && (
+                    <div className="mb-6 flex items-center gap-3 px-5 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm">
+                        <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                        <span>{notice || 'API rate limit reached. Showing cached data.'}</span>
+                    </div>
+                )}
+                {notice && syncStatus !== 'rate-limited' && (
+                    <div className="mb-6 flex items-center gap-3 px-5 py-3 rounded-xl bg-slate-500/10 border border-slate-500/30 text-slate-300 text-sm">
+                        <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+                        <span>{notice}</span>
+                    </div>
+                )}
+
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-32">
                         <div className="animate-spin w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
-                        <p className="text-slate-400">Loading {selectedTeam?.name} players...</p>
+                        <p className="text-slate-400">Fetching {selectedTeam?.name} players from live API...</p>
+                        <p className="text-xs text-slate-600 mt-2">This may take a moment for the first load</p>
                     </div>
                 ) : displayPlayers.length > 0 ? (
                     <>
@@ -406,8 +496,19 @@ const TeamsPage = () => {
                         <div className="text-5xl mb-4">{selectedTeam?.flag || '\u{1F3CF}'}</div>
                         <h3 className="text-xl font-bold text-white">No Players Found</h3>
                         <p className="text-slate-400 mt-2 max-w-md mx-auto">
-                            No players cached for {selectedTeam?.name} yet. Players appear here as they're fetched from the API. Try searching for a specific player name.
+                            {syncStatus === 'rate-limited'
+                                ? 'API rate limit reached and no cached data available. Try again tomorrow.'
+                                : syncStatus === 'error'
+                                ? 'An error occurred while fetching players. Please try again.'
+                                : `No players found for ${selectedTeam?.name} yet. The API is being queried — try refreshing in a few moments.`}
                         </p>
+                        <button
+                            onClick={() => selectedTeam && fetchTeamPlayers(selectedTeam.name, 0)}
+                            className="mt-6 inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all text-sm"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            Retry
+                        </button>
                     </div>
                 )}
             </div>

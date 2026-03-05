@@ -16,9 +16,17 @@ const PlayerCard = ({ player }) => {
 
   const stats = player.stats || {};
   const isBasic = player._isBasic;
+  const hasDetailLink = player.apiId || player._id;
+
+  const CardWrapper = ({ children }) => {
+    if (hasDetailLink) {
+      return <Link to={`/player/${player.apiId || player._id}`} className="block h-full">{children}</Link>;
+    }
+    return <div className="block h-full">{children}</div>;
+  };
 
   return (
-    <Link to={`/player/${player.apiId || player._id}`} className="block h-full">
+    <CardWrapper>
       <div className='bg-white/5 backdrop-blur-md rounded-2xl p-5 border border-white/10 shadow-xl hover:bg-white/10 hover:border-white/20 transition-all duration-300 h-full flex flex-col group'>
         
         <div className='flex items-start justify-between mb-4'>
@@ -52,7 +60,10 @@ const PlayerCard = ({ player }) => {
 
         {isBasic ? (
           <div className='mt-auto bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-center'>
-              <p className='text-xs text-blue-300'>Click to load full stats</p>
+              <p className='text-xs text-blue-300'>{hasDetailLink ? 'Click to load full stats' : 'International squad player'}</p>
+              {player.battingStyle && (
+                <p className='text-xs text-slate-500 mt-1'>{player.battingStyle}{player.bowlingStyle ? ` • ${player.bowlingStyle}` : ''}</p>
+              )}
           </div>
         ) : (
           <div className='mt-auto grid grid-cols-2 gap-3 text-sm'>
@@ -75,7 +86,7 @@ const PlayerCard = ({ player }) => {
           </div>
         )}
       </div>
-    </Link>
+    </CardWrapper>
   );
 };
 
