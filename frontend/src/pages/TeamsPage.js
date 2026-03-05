@@ -5,70 +5,128 @@ import PlayerCard from '../components/PlayerCard';
 
 const API = 'http://localhost:5000/api/players';
 
+const TEAMS = [
+    // ICC Full Members (12)
+    { name: 'India', code: 'IND', flag: '\u{1F1EE}\u{1F1F3}', icc: 'Full Member', gradient: 'from-blue-600 to-orange-500', bg: 'bg-blue-900/40', border: 'border-blue-500/30' },
+    { name: 'Australia', code: 'AUS', flag: '\u{1F1E6}\u{1F1FA}', icc: 'Full Member', gradient: 'from-yellow-500 to-green-600', bg: 'bg-yellow-900/30', border: 'border-yellow-500/30' },
+    { name: 'England', code: 'ENG', flag: '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}', icc: 'Full Member', gradient: 'from-blue-700 to-red-600', bg: 'bg-blue-900/40', border: 'border-blue-500/30' },
+    { name: 'South Africa', code: 'SA', flag: '\u{1F1FF}\u{1F1E6}', icc: 'Full Member', gradient: 'from-green-600 to-yellow-500', bg: 'bg-green-900/30', border: 'border-green-500/30' },
+    { name: 'New Zealand', code: 'NZ', flag: '\u{1F1F3}\u{1F1FF}', icc: 'Full Member', gradient: 'from-slate-700 to-slate-900', bg: 'bg-slate-800/50', border: 'border-slate-500/30' },
+    { name: 'Pakistan', code: 'PAK', flag: '\u{1F1F5}\u{1F1F0}', icc: 'Full Member', gradient: 'from-green-700 to-green-900', bg: 'bg-green-900/40', border: 'border-green-500/30' },
+    { name: 'Sri Lanka', code: 'SL', flag: '\u{1F1F1}\u{1F1F0}', icc: 'Full Member', gradient: 'from-blue-800 to-yellow-600', bg: 'bg-blue-900/30', border: 'border-blue-500/30' },
+    { name: 'Bangladesh', code: 'BAN', flag: '\u{1F1E7}\u{1F1E9}', icc: 'Full Member', gradient: 'from-green-600 to-red-600', bg: 'bg-green-900/30', border: 'border-green-500/30' },
+    { name: 'West Indies', code: 'WI', flag: '\u{1F3CF}', icc: 'Full Member', gradient: 'from-red-700 to-red-900', bg: 'bg-red-900/30', border: 'border-red-500/30' },
+    { name: 'Zimbabwe', code: 'ZIM', flag: '\u{1F1FF}\u{1F1FC}', icc: 'Full Member', gradient: 'from-green-600 to-yellow-600', bg: 'bg-green-900/30', border: 'border-green-500/30' },
+    { name: 'Afghanistan', code: 'AFG', flag: '\u{1F1E6}\u{1F1EB}', icc: 'Full Member', gradient: 'from-red-700 to-green-700', bg: 'bg-red-900/30', border: 'border-red-500/30' },
+    { name: 'Ireland', code: 'IRE', flag: '\u{1F1EE}\u{1F1EA}', icc: 'Full Member', gradient: 'from-green-500 to-orange-500', bg: 'bg-green-900/30', border: 'border-green-500/30' },
+
+    // ICC Associate Members
+    { name: 'Netherlands', code: 'NED', flag: '\u{1F1F3}\u{1F1F1}', icc: 'Associate', gradient: 'from-orange-600 to-blue-600', bg: 'bg-orange-900/20', border: 'border-orange-500/20' },
+    { name: 'Scotland', code: 'SCO', flag: '\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}', icc: 'Associate', gradient: 'from-blue-600 to-blue-800', bg: 'bg-blue-900/20', border: 'border-blue-500/20' },
+    { name: 'Nepal', code: 'NEP', flag: '\u{1F1F3}\u{1F1F5}', icc: 'Associate', gradient: 'from-red-600 to-blue-700', bg: 'bg-red-900/20', border: 'border-red-500/20' },
+    { name: 'USA', code: 'USA', flag: '\u{1F1FA}\u{1F1F8}', icc: 'Associate', gradient: 'from-blue-700 to-red-700', bg: 'bg-blue-900/20', border: 'border-blue-500/20' },
+    { name: 'UAE', code: 'UAE', flag: '\u{1F1E6}\u{1F1EA}', icc: 'Associate', gradient: 'from-green-600 to-red-600', bg: 'bg-green-900/20', border: 'border-green-500/20' },
+    { name: 'Oman', code: 'OMA', flag: '\u{1F1F4}\u{1F1F2}', icc: 'Associate', gradient: 'from-red-600 to-green-600', bg: 'bg-red-900/20', border: 'border-red-500/20' },
+    { name: 'Namibia', code: 'NAM', flag: '\u{1F1F3}\u{1F1E6}', icc: 'Associate', gradient: 'from-blue-600 to-red-600', bg: 'bg-blue-900/20', border: 'border-blue-500/20' },
+    { name: 'Canada', code: 'CAN', flag: '\u{1F1E8}\u{1F1E6}', icc: 'Associate', gradient: 'from-red-600 to-red-800', bg: 'bg-red-900/20', border: 'border-red-500/20' },
+    { name: 'Papua New Guinea', code: 'PNG', flag: '\u{1F1F5}\u{1F1EC}', icc: 'Associate', gradient: 'from-red-700 to-yellow-500', bg: 'bg-red-900/20', border: 'border-red-500/20' },
+    { name: 'Uganda', code: 'UGA', flag: '\u{1F1FA}\u{1F1EC}', icc: 'Associate', gradient: 'from-yellow-500 to-red-600', bg: 'bg-yellow-900/20', border: 'border-yellow-500/20' },
+    { name: 'Kenya', code: 'KEN', flag: '\u{1F1F0}\u{1F1EA}', icc: 'Associate', gradient: 'from-green-700 to-red-700', bg: 'bg-green-900/20', border: 'border-green-500/20' },
+    { name: 'Hong Kong', code: 'HK', flag: '\u{1F1ED}\u{1F1F0}', icc: 'Associate', gradient: 'from-red-700 to-red-900', bg: 'bg-red-900/20', border: 'border-red-500/20' },
+    { name: 'Jersey', code: 'JER', flag: '\u{1F1EF}\u{1F1EA}', icc: 'Associate', gradient: 'from-red-600 to-yellow-500', bg: 'bg-red-900/20', border: 'border-red-500/20' },
+    { name: 'Singapore', code: 'SIN', flag: '\u{1F1F8}\u{1F1EC}', icc: 'Associate', gradient: 'from-red-600 to-white', bg: 'bg-red-900/20', border: 'border-red-500/20' },
+    { name: 'Bermuda', code: 'BER', flag: '\u{1F1E7}\u{1F1F2}', icc: 'Associate', gradient: 'from-red-600 to-blue-600', bg: 'bg-red-900/20', border: 'border-blue-500/20' },
+    { name: 'Italy', code: 'ITA', flag: '\u{1F1EE}\u{1F1F9}', icc: 'Associate', gradient: 'from-green-600 to-red-600', bg: 'bg-green-900/20', border: 'border-green-500/20' },
+    { name: 'Germany', code: 'GER', flag: '\u{1F1E9}\u{1F1EA}', icc: 'Associate', gradient: 'from-yellow-500 to-red-600', bg: 'bg-yellow-900/20', border: 'border-yellow-500/20' },
+];
+
 const TeamsPage = () => {
+    const [view, setView] = useState('teams');
+    const [selectedTeam, setSelectedTeam] = useState(null);
     const [players, setPlayers] = useState([]);
-    const [selectedTeam, setSelectedTeam] = useState('All');
-    const [search, setSearch] = useState('');
-    const [searching, setSearching] = useState(false);
-    const [countries, setCountries] = useState(['All']);
     const [loading, setLoading] = useState(false);
+    const [search, setSearch] = useState('');
+    const [searchResults, setSearchResults] = useState(null);
+    const [searching, setSearching] = useState(false);
+    const [teamFilter, setTeamFilter] = useState('all');
+    const [teamSearch, setTeamSearch] = useState('');
     const [offset, setOffset] = useState(0);
     const [hasMore, setHasMore] = useState(false);
     const [total, setTotal] = useState(0);
     const [loadingMore, setLoadingMore] = useState(false);
-    const [searchResults, setSearchResults] = useState(null);
+    const [cachedRosters, setCachedRosters] = useState({});
 
-    const fetchPlayers = useCallback(async (newOffset = 0, append = false) => {
+    const selectTeam = (team) => {
+        setSelectedTeam(team);
+        setView('roster');
+        setSearch('');
+        setSearchResults(null);
+        setOffset(0);
+
+        if (cachedRosters[team.name]) {
+            const cached = cachedRosters[team.name];
+            setPlayers(cached.players);
+            setTotal(cached.total);
+            setHasMore(cached.hasMore);
+        } else {
+            setPlayers([]);
+            fetchTeamPlayers(team.name, 0);
+        }
+    };
+
+    const goBack = () => {
+        setView('teams');
+        setSelectedTeam(null);
+        setPlayers([]);
+        setSearch('');
+        setSearchResults(null);
+    };
+
+    const fetchTeamPlayers = useCallback(async (country, newOffset = 0, append = false) => {
         if (append) setLoadingMore(true);
         else setLoading(true);
         try {
-            const { data } = await axios.get(`${API}?offset=${newOffset}`);
+            const { data } = await axios.get(`${API}/team/${encodeURIComponent(country)}?offset=${newOffset}`);
+            const fetchedPlayers = data.players || [];
             if (append) {
-                setPlayers(prev => [...prev, ...(data.players || [])]);
+                setPlayers(prev => {
+                    const merged = [...prev, ...fetchedPlayers];
+                    setCachedRosters(c => ({ ...c, [country]: { players: merged, total: data.total || 0, hasMore: data.hasMore || false } }));
+                    return merged;
+                });
             } else {
-                setPlayers(data.players || []);
+                setPlayers(fetchedPlayers);
+                setCachedRosters(c => ({ ...c, [country]: { players: fetchedPlayers, total: data.total || 0, hasMore: data.hasMore || false } }));
             }
             setTotal(data.total || 0);
             setHasMore(data.hasMore || false);
             setOffset(newOffset);
-        } catch (error) {
-            console.error("Error fetching players", error);
+        } catch (err) {
+            console.error('Error fetching team players:', err);
         } finally {
             setLoading(false);
             setLoadingMore(false);
         }
     }, []);
 
-    const fetchCountries = useCallback(async () => {
-        try {
-            const { data } = await axios.get(`${API}/countries`);
-            setCountries(['All', ...data]);
-        } catch (error) {
-            const unique = [...new Set(players.map(p => p.country))].filter(Boolean).sort();
-            setCountries(['All', ...unique]);
-        }
-    }, [players]);
-
     const handleSearch = useCallback(async () => {
-        if (!search || search.length < 2) {
+        if (!search || search.length < 2 || !selectedTeam) {
             setSearchResults(null);
             return;
         }
         setSearching(true);
         try {
             const { data } = await axios.get(`${API}/search?q=${encodeURIComponent(search)}`);
-            setSearchResults(data.players || []);
+            const teamPlayers = (data.players || []).filter(p =>
+                p.country && p.country.toLowerCase() === selectedTeam.name.toLowerCase()
+            );
+            setSearchResults(teamPlayers);
         } catch (err) {
             console.error('Search error:', err);
         } finally {
             setSearching(false);
         }
-    }, [search]);
-
-    useEffect(() => {
-        fetchPlayers(0);
-        fetchCountries();
-    }, [fetchPlayers, fetchCountries]);
+    }, [search, selectedTeam]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -82,49 +140,223 @@ const TeamsPage = () => {
     }, [search, handleSearch]);
 
     const loadMore = () => {
-        if (!loadingMore && hasMore) {
-            fetchPlayers(offset + 25, true);
+        if (!loadingMore && hasMore && selectedTeam) {
+            fetchTeamPlayers(selectedTeam.name, offset + 50, true);
         }
     };
 
     const displayPlayers = searchResults !== null ? searchResults : players;
 
-    const filteredPlayers = displayPlayers.filter(player => {
-        if (selectedTeam === 'All') return true;
-        return player.country === selectedTeam;
+    const filteredTeams = TEAMS.filter(t => {
+        const matchesFilter = teamFilter === 'all' ||
+            (teamFilter === 'full' && t.icc === 'Full Member') ||
+            (teamFilter === 'associate' && t.icc === 'Associate');
+        const matchesSearch = !teamSearch || t.name.toLowerCase().includes(teamSearch.toLowerCase()) || t.code.toLowerCase().includes(teamSearch.toLowerCase());
+        return matchesFilter && matchesSearch;
     });
 
-    return (
-        <div className='min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200 flex flex-col'>
-            
-            {/* Navbar */}
-            <nav className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-lg border-b border-white/10 shadow-lg">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-20">
-                        <div className="flex items-center gap-3">
-                            <Link to="/" className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg hover:scale-105 transition-transform">
-                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            </Link>
+    const fullMembers = filteredTeams.filter(t => t.icc === 'Full Member');
+    const associates = filteredTeams.filter(t => t.icc === 'Associate');
+
+    // ==================== TEAMS VIEW ====================
+    if (view === 'teams') {
+        return (
+            <div className='min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200'>
+
+                {/* Header */}
+                <div className="bg-slate-900/60 backdrop-blur-xl border-b border-white/10">
+                    <div className="max-w-7xl mx-auto px-6 py-8">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <h1 className="text-2xl font-bold text-white tracking-tight">Team Directory</h1>
-                                <p className="text-xs text-indigo-300 font-medium tracking-wide">GLOBAL DATABASE</p>
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg">
+                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h1 className="text-3xl font-bold text-white tracking-tight">International Teams</h1>
+                                        <p className="text-sm text-indigo-300 font-medium">All ICC Member Nations</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <Link to="/" className="text-slate-400 hover:text-white transition-colors text-sm flex items-center gap-2">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                                Dashboard
+                            </Link>
+                        </div>
+
+                        {/* Filters */}
+                        <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            <div className="relative flex-1 max-w-md">
+                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                <input
+                                    type="text"
+                                    placeholder="Search teams..."
+                                    className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={teamSearch}
+                                    onChange={(e) => setTeamSearch(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                {[['all', 'All Teams'], ['full', 'Full Members'], ['associate', 'Associates']].map(([key, label]) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => setTeamFilter(key)}
+                                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                                            teamFilter === key
+                                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
+                                                : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-white/10'
+                                        }`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
                             </div>
                         </div>
-                        <Link to="/" className="text-slate-400 hover:text-white transition-colors">Back to Dashboard</Link>
                     </div>
                 </div>
-            </nav>
 
-            <div className="flex-1 flex flex-col md:flex-row max-w-7xl mx-auto w-full">
-                
-                {/* Sidebar / Filter Panel */}
-                <aside className="w-full md:w-72 bg-slate-900/50 border-r border-white/5 p-6 flex flex-col gap-6 h-auto md:min-h-[calc(100vh-80px)]">
-                    
-                    <div className="relative">
-                        <input 
-                            type="text" 
-                            placeholder="Search any player..." 
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                {/* Teams Grid */}
+                <div className="max-w-7xl mx-auto px-6 py-8">
+
+                    {/* Full Members */}
+                    {(teamFilter === 'all' || teamFilter === 'full') && fullMembers.length > 0 && (
+                        <div className="mb-12">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-1 h-8 bg-gradient-to-b from-indigo-500 to-violet-500 rounded-full"></div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-white">ICC Full Members</h2>
+                                    <p className="text-xs text-slate-500 mt-0.5">{fullMembers.length} teams with Test status</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {fullMembers.map(team => (
+                                    <button
+                                        key={team.code}
+                                        onClick={() => selectTeam(team)}
+                                        className={`group relative overflow-hidden rounded-2xl ${team.bg} border ${team.border} p-5 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:border-white/20`}
+                                    >
+                                        <div className={`absolute inset-0 bg-gradient-to-br ${team.gradient} opacity-10 group-hover:opacity-20 transition-opacity`}></div>
+                                        <div className="relative z-10">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="text-3xl">{team.flag}</span>
+                                                <span className="text-xs font-bold bg-white/10 text-white/70 px-2 py-1 rounded-lg">{team.code}</span>
+                                            </div>
+                                            <h3 className="text-lg font-bold text-white group-hover:text-blue-200 transition-colors">{team.name}</h3>
+                                            <div className="flex items-center gap-2 mt-2">
+                                                <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold">
+                                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                                                    Full Member
+                                                </span>
+                                            </div>
+                                            <div className="mt-3 flex items-center text-xs text-slate-500 group-hover:text-slate-400 transition-colors">
+                                                <span>View Squad</span>
+                                                <svg className="w-3 h-3 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Associate Members */}
+                    {(teamFilter === 'all' || teamFilter === 'associate') && associates.length > 0 && (
+                        <div>
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-1 h-8 bg-gradient-to-b from-teal-500 to-emerald-500 rounded-full"></div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-white">ICC Associate Members</h2>
+                                    <p className="text-xs text-slate-500 mt-0.5">{associates.length} teams</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {associates.map(team => (
+                                    <button
+                                        key={team.code}
+                                        onClick={() => selectTeam(team)}
+                                        className={`group relative overflow-hidden rounded-2xl ${team.bg} border ${team.border} p-5 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:border-white/20`}
+                                    >
+                                        <div className={`absolute inset-0 bg-gradient-to-br ${team.gradient} opacity-5 group-hover:opacity-15 transition-opacity`}></div>
+                                        <div className="relative z-10">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="text-3xl">{team.flag}</span>
+                                                <span className="text-xs font-bold bg-white/10 text-white/70 px-2 py-1 rounded-lg">{team.code}</span>
+                                            </div>
+                                            <h3 className="text-lg font-bold text-white group-hover:text-teal-200 transition-colors">{team.name}</h3>
+                                            <div className="flex items-center gap-2 mt-2">
+                                                <span className="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/20 font-semibold">
+                                                    Associate
+                                                </span>
+                                            </div>
+                                            <div className="mt-3 flex items-center text-xs text-slate-500 group-hover:text-slate-400 transition-colors">
+                                                <span>View Squad</span>
+                                                <svg className="w-3 h-3 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {filteredTeams.length === 0 && (
+                        <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/10 border-dashed">
+                            <div className="text-5xl mb-4">{'\u{1F50D}'}</div>
+                            <h3 className="text-xl font-bold text-white">No Teams Found</h3>
+                            <p className="text-slate-400 mt-2">Try adjusting your search or filter.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // ==================== ROSTER VIEW ====================
+    return (
+        <div className='min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200'>
+
+            {/* Team Header */}
+            <div className="relative overflow-hidden bg-slate-900/60 backdrop-blur-xl border-b border-white/10">
+                <div className={`absolute inset-0 bg-gradient-to-r ${selectedTeam?.gradient || 'from-blue-600 to-indigo-600'} opacity-10`}></div>
+                <div className="relative max-w-7xl mx-auto px-6 py-8">
+                    <button
+                        onClick={goBack}
+                        className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-4"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                        All Teams
+                    </button>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-5">
+                            <div className="text-5xl">{selectedTeam?.flag}</div>
+                            <div>
+                                <h1 className="text-3xl font-bold text-white tracking-tight">{selectedTeam?.name}</h1>
+                                <div className="flex items-center gap-3 mt-1">
+                                    <span className="text-sm font-bold text-slate-400">{selectedTeam?.code}</span>
+                                    <span className="text-xs text-slate-600">{'\u2022'}</span>
+                                    <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
+                                        selectedTeam?.icc === 'Full Member'
+                                            ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                                            : 'bg-teal-500/15 text-teal-300 border border-teal-500/20'
+                                    }`}>{selectedTeam?.icc}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-3xl font-black text-white">{displayPlayers.length}</div>
+                            <div className="text-xs text-slate-500 uppercase tracking-wider">Players</div>
+                        </div>
+                    </div>
+
+                    {/* Search within team */}
+                    <div className="mt-6 relative max-w-md">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        <input
+                            type="text"
+                            placeholder={`Search players in ${selectedTeam?.name}...`}
+                            className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 outline-none"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
@@ -134,84 +366,50 @@ const TeamsPage = () => {
                             </div>
                         )}
                     </div>
+                </div>
+            </div>
 
-                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Countries</h3>
-                        
-                        <div className="space-y-1">
-                            {countries.map(team => (
-                                <button
-                                    key={team}
-                                    onClick={() => setSelectedTeam(team)}
-                                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all flex items-center justify-between group ${
-                                        selectedTeam === team 
-                                        ? 'bg-white/10 text-white border border-white/10 shadow-sm' 
-                                        : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                                    }`}
-                                >
-                                    <span>{team}</span>
-                                    {team !== 'All' && (
-                                        <span className={`text-xs px-2 py-0.5 rounded-full ${selectedTeam === team ? 'bg-white text-slate-900' : 'bg-slate-800 text-slate-500 group-hover:bg-slate-700'}`}>
-                                            {displayPlayers.filter(p => p.country === team).length}
-                                        </span>
-                                    )}
-                                </button>
+            {/* Players Grid */}
+            <div className="max-w-7xl mx-auto px-6 py-8">
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center py-32">
+                        <div className="animate-spin w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
+                        <p className="text-slate-400">Loading {selectedTeam?.name} players...</p>
+                    </div>
+                ) : displayPlayers.length > 0 ? (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {displayPlayers.map((player, idx) => (
+                                <PlayerCard key={player.apiId || player._id || idx} player={player} />
                             ))}
                         </div>
-                    </div>
-                </aside>
 
-                {/* Main Content */}
-                <main className="flex-1 p-6 md:p-8 overflow-y-auto">
-                    
-                    {/* Header */}
-                    <div className="mb-8 flex items-end justify-between border-b border-white/10 pb-6">
-                        <div>
-                            <span className="text-blue-400 text-xs font-bold uppercase tracking-widest mb-1 block">
-                                {selectedTeam}
-                            </span>
-                            <h2 className="text-4xl font-bold text-white">
-                                {selectedTeam === 'All' ? 'All Players' : selectedTeam}
-                            </h2>
-                        </div>
-                        <div className="text-right">
-                            <div className="text-3xl font-black text-white">{filteredPlayers.length}</div>
-                            <div className="text-xs text-slate-500 uppercase tracking-wider">Players</div>
-                        </div>
-                    </div>
-
-                    {loading ? (
-                        <div className="flex flex-col items-center justify-center py-32">
-                            <div className="animate-spin w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
-                            <p className="text-slate-400">Loading players...</p>
-                        </div>
-                    ) : filteredPlayers.length > 0 ? (
-                        <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
-                                {filteredPlayers.map((player, idx) => (
-                                    <PlayerCard key={player.apiId || player._id || idx} player={player} />
-                                ))}
+                        {searchResults === null && hasMore && (
+                            <div className="mt-10 text-center">
+                                <button
+                                    onClick={loadMore}
+                                    disabled={loadingMore}
+                                    className="inline-flex items-center gap-3 px-8 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-bold rounded-xl shadow-lg transition-all"
+                                >
+                                    {loadingMore ? (
+                                        <>
+                                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                            Loading...
+                                        </>
+                                    ) : `Load More (${players.length} of ${total})`}
+                                </button>
                             </div>
-                            {searchResults === null && hasMore && selectedTeam === 'All' && (
-                                <div className="mt-10 text-center">
-                                    <button
-                                        onClick={loadMore}
-                                        disabled={loadingMore}
-                                        className="inline-flex items-center gap-3 px-8 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-bold rounded-xl shadow-lg transition-all"
-                                    >
-                                        {loadingMore ? 'Loading...' : `Load More (${players.length} of ${total.toLocaleString()})`}
-                                    </button>
-                                </div>
-                            )}
-                        </>
-                    ) : (
-                        <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/10 border-dashed">
-                            <div className="text-6xl mb-4">🏏</div>
-                            <h3 className="text-xl font-bold text-white">No Players Found</h3>
-                            <p className="text-slate-400 mt-2">Try adjusting your search or selecting a different country.</p>
-                        </div>
-                    )}
-                </main>
+                        )}
+                    </>
+                ) : (
+                    <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/10 border-dashed">
+                        <div className="text-5xl mb-4">{selectedTeam?.flag || '\u{1F3CF}'}</div>
+                        <h3 className="text-xl font-bold text-white">No Players Found</h3>
+                        <p className="text-slate-400 mt-2 max-w-md mx-auto">
+                            No players cached for {selectedTeam?.name} yet. Players appear here as they're fetched from the API. Try searching for a specific player name.
+                        </p>
+                    </div>
+                )}
             </div>
         </div>
     );

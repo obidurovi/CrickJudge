@@ -128,6 +128,64 @@ const getPlayerDetail = async (req, res) => {
     }
 };
 
+const getPlayersByTeam = async (req, res) => {
+    try {
+        const { country } = req.params;
+        const offset = parseInt(req.query.offset) || 0;
+        const limit = 50;
+
+        // Try cache first
+        const regex = new RegExp(`^${country.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+        const cachedPlayers = await Player.find({ country: regex }).sort({ name: 1 }).skip(offset).limit(limit);
+        const totalCached = await Player.countDocuments({ country: regex });
+
+        if (cachedPlayers.length > 0) {
+            return res.json({
+                players: cachedPlayers,
+                total: totalCached,
+                offset,
+                hasMore: offset + limit < totalCached,
+                source: 'cache'
+            });
+        }
+
+        // Fallback: search API by country name
+        try {
+            const data = await cricketApi.listPlayers(0, country);
+            const apiPlayers = (data.data || []).filter(p =>
+                p.country && p.country.toLowerCase().includes(country.toLowerCase())
+            );
+
+            const apiIds = apiPlayers.map(p => p.id);
+            const cached = await Player.find({ apiId: { $in: apiIds } });
+            const cacheMap = new Map(cached.map(p => [p.apiId, p]));
+
+            const players = apiPlayers.map(p => {
+                if (cacheMap.has(p.id)) return cacheMap.get(p.id);
+                return {
+                    apiId: p.id,
+                    name: p.name,
+                    country: p.country || country,
+                    source: 'api',
+                    _isBasic: true
+                };
+            });
+
+            return res.json({
+                players,
+                total: players.length,
+                offset: 0,
+                hasMore: false,
+                source: 'api'
+            });
+        } catch (apiErr) {
+            return res.json({ players: [], total: 0, offset: 0, hasMore: false });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 const getPlayerCountries = async (req, res) => {
     try {
         const countries = await Player.distinct('country');
@@ -137,4 +195,4 @@ const getPlayerCountries = async (req, res) => {
     }
 };
 
-module.exports = { listPlayers, searchPlayers, getPlayerDetail, getPlayerCountries };
+module.exports = { listPlayers, searchPlayers, getPlayerDetail, getPlayerCountries, getPlayersByTeam };
