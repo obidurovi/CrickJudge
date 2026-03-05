@@ -1,7 +1,7 @@
 const Player = require('../models/Player');
 const cricketApi = require('../utils/cricketApi');
 const { syncPlayerFromApi } = require('../utils/playerSync');
-const { getTeamPlayers, syncTeamFromApi, INTERNATIONAL_TEAMS } = require('../utils/teamSync');
+const { getTeamPlayers, crawlAllPlayers, syncTeamDetails, getSyncStatus, INTERNATIONAL_TEAMS, COUNTRY_ALIASES, ALIAS_TO_CANONICAL, countryRegex } = require('../utils/teamSync');
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
@@ -146,6 +146,7 @@ const getPlayersByTeam = async (req, res) => {
             fromCache: result.fromCache || false,
             syncing: result.syncing || false,
             lastSynced: result.lastSynced || null,
+            message: result.message || null,
             source: 'api'
         });
     } catch (error) {
@@ -171,18 +172,37 @@ const getPlayersByTeam = async (req, res) => {
 };
 
 /**
- * Trigger a manual sync for a specific team (POST /api/players/sync-team/:country)
+ * Trigger a global sync to crawl ALL players from the API (POST /api/players/sync-all)
+ */
+const syncAll = async (req, res) => {
+    try {
+        const maxPages = parseInt(req.query.pages) || 100;
+        // Start crawl in background
+        crawlAllPlayers({ maxPages }).catch(err => {
+            console.error('[Sync] Background crawl error:', err.message);
+        });
+
+        const status = getSyncStatus();
+        return res.json({
+            message: `Global player sync started. Crawling up to ${maxPages} pages.`,
+            status
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Fetch detailed info for a team's players (POST /api/players/sync-team/:country)
  */
 const syncTeam = async (req, res) => {
     try {
         const { country } = req.params;
-        const result = await syncTeamFromApi(country, { fetchDetails: true, maxDetailFetches: 50 });
+        const result = await syncTeamDetails(country, 30);
 
         return res.json({
-            message: `Synced ${result.total} players for ${country}`,
-            total: result.total,
-            detailsSynced: result.synced,
-            fromCache: result.fromCache
+            message: `Synced detailed info for ${result.synced} of ${result.total} players in ${country}`,
+            ...result
         });
     } catch (error) {
         if (error.message && (error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Block'))) {
@@ -193,30 +213,54 @@ const syncTeam = async (req, res) => {
 };
 
 /**
+ * Get the current sync status (GET /api/players/sync-status)
+ */
+const getSyncStatusEndpoint = async (req, res) => {
+    try {
+        const status = getSyncStatus();
+        res.json(status);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
  * Get the list of all international teams with player counts from the DB.
+ * Merges alias counts (e.g. "United Arab Emirates" -> "UAE").
  */
 const getTeamsList = async (req, res) => {
     try {
-        // Get player counts from DB for each known team
+        // Get player counts from DB for each country
         const countPipeline = [
             { $match: { country: { $ne: null } } },
             { $group: { _id: '$country', count: { $sum: 1 } } },
             { $sort: { _id: 1 } }
         ];
         const dbCounts = await Player.aggregate(countPipeline);
-        const dbCountMap = new Map(dbCounts.map(c => [c._id, c.count]));
 
-        // Build team list — include all international teams, plus any from DB
-        const teamSet = new Set(INTERNATIONAL_TEAMS);
-        for (const [country] of dbCountMap) {
-            teamSet.add(country);
+        // Build count map with alias merging
+        const teamCountMap = new Map();
+        for (const c of dbCounts) {
+            const rawName = c._id;
+            // Check if this is an alias for a canonical team name
+            const canonical = ALIAS_TO_CANONICAL[rawName.toLowerCase()] || rawName;
+            teamCountMap.set(canonical, (teamCountMap.get(canonical) || 0) + c.count);
         }
 
-        const teams = [...teamSet].sort().map(name => ({
+        // Build team list — include all international teams
+        const teams = INTERNATIONAL_TEAMS.map(name => ({
             name,
-            playerCount: dbCountMap.get(name) || 0
+            playerCount: teamCountMap.get(name) || 0
         }));
 
+        // Also include any countries from DB that aren't in our predefined list
+        for (const [name, count] of teamCountMap) {
+            if (!INTERNATIONAL_TEAMS.includes(name) && name !== 'Unknown') {
+                teams.push({ name, playerCount: count });
+            }
+        }
+
+        teams.sort((a, b) => a.name.localeCompare(b.name));
         res.json(teams);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -234,4 +278,4 @@ const getPlayerCountries = async (req, res) => {
     }
 };
 
-module.exports = { listPlayers, searchPlayers, getPlayerDetail, getPlayerCountries, getPlayersByTeam, getTeamsList, syncTeam };
+module.exports = { listPlayers, searchPlayers, getPlayerDetail, getPlayerCountries, getPlayersByTeam, getTeamsList, syncTeam, syncAll, getSyncStatusEndpoint };

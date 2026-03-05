@@ -1,202 +1,22 @@
 const Player = require('../models/Player');
 const cricketApi = require('./cricketApi');
-const { syncPlayerFromApi, mapPlayerData } = require('./playerSync');
+const { syncPlayerFromApi } = require('./playerSync');
 
-// How long before we re-sync a team's roster from the API
-const TEAM_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
-
-// In-memory tracking of which teams are currently being synced (prevent duplicates)
-const syncInProgress = new Map();
-
-// Track when each team was last synced
-const teamSyncTimestamps = new Map();
-
-/**
- * Fetch all players for a country from the CricAPI, save basic info to MongoDB,
- * and optionally fetch detailed stats for each player.
- * 
- * @param {string} country - Country name
- * @param {object} options - { fetchDetails: boolean, maxDetailFetches: number }
- * @returns {{ players: Array, synced: number, total: number, fromCache: boolean }}
- */
-const syncTeamFromApi = async (country, options = {}) => {
-    const { fetchDetails = true, maxDetailFetches = 50 } = options;
-
-    // Check if already syncing this team
-    if (syncInProgress.has(country)) {
-        return syncInProgress.get(country);
-    }
-
-    const syncPromise = (async () => {
-        try {
-            console.log(`[TeamSync] Starting sync for ${country}...`);
-
-            // Step 1: Fetch all players from the API by country
-            const apiPlayers = await cricketApi.fetchAllPlayersByCountry(country);
-            console.log(`[TeamSync] Found ${apiPlayers.length} players for ${country} from API`);
-
-            if (apiPlayers.length === 0) {
-                return { players: [], synced: 0, total: 0, fromCache: false };
-            }
-
-            // Step 2: Save basic info for all players to MongoDB
-            const savedPlayers = [];
-            const apiIds = apiPlayers.map(p => p.id);
-            const existingPlayers = await Player.find({ apiId: { $in: apiIds } });
-            const existingMap = new Map(existingPlayers.map(p => [p.apiId, p]));
-
-            for (const ap of apiPlayers) {
-                const existing = existingMap.get(ap.id);
-
-                if (existing && existing.lastSynced && (Date.now() - existing.lastSynced.getTime() < TEAM_CACHE_DURATION)) {
-                    // Already synced recently, skip
-                    savedPlayers.push(existing);
-                    continue;
-                }
-
-                // Save basic info
-                try {
-                    const basicData = {
-                        apiId: ap.id,
-                        name: ap.name || 'Unknown',
-                        country: ap.country || country,
-                        image: ap.playerImg || (existing ? existing.image : ''),
-                        source: 'api'
-                    };
-
-                    // Preserve existing detailed data if we have it
-                    if (existing && existing.role && existing.role !== 'Unknown') {
-                        basicData.role = existing.role;
-                        basicData.battingStyle = existing.battingStyle;
-                        basicData.bowlingStyle = existing.bowlingStyle;
-                    }
-
-                    const player = await Player.findOneAndUpdate(
-                        { apiId: ap.id },
-                        { $set: basicData },
-                        { upsert: true, new: true, setDefaultsOnInsert: true }
-                    );
-                    savedPlayers.push(player);
-                } catch (dbErr) {
-                    console.error(`[TeamSync] Error saving ${ap.name}:`, dbErr.message);
-                }
-            }
-
-            // Step 3: Fetch detailed stats for players that don't have them yet
-            let detailsSynced = 0;
-            if (fetchDetails) {
-                const needDetails = savedPlayers.filter(p =>
-                    !p.lastSynced || !p.role || p.role === 'Unknown' ||
-                    (Date.now() - (p.lastSynced?.getTime() || 0) > TEAM_CACHE_DURATION)
-                );
-
-                const toSync = needDetails.slice(0, maxDetailFetches);
-                console.log(`[TeamSync] Fetching details for ${toSync.length} of ${needDetails.length} players needing update`);
-
-                for (const player of toSync) {
-                    try {
-                        const synced = await syncPlayerFromApi(player.apiId);
-                        if (synced) {
-                            // Replace in savedPlayers array
-                            const idx = savedPlayers.findIndex(p => p.apiId === player.apiId);
-                            if (idx !== -1) savedPlayers[idx] = synced;
-                            detailsSynced++;
-                        }
-                    } catch (detailErr) {
-                        // API rate limit hit — stop trying details
-                        if (detailErr.message && (detailErr.message.includes('hits') || detailErr.message.includes('limit') || detailErr.message.includes('Block'))) {
-                            console.log(`[TeamSync] API rate limit hit after ${detailsSynced} detail fetches. Stopping.`);
-                            break;
-                        }
-                        console.error(`[TeamSync] Error fetching details for ${player.name}:`, detailErr.message);
-                    }
-                }
-            }
-
-            teamSyncTimestamps.set(country, Date.now());
-            console.log(`[TeamSync] Completed ${country}: ${savedPlayers.length} total, ${detailsSynced} details synced`);
-
-            return {
-                players: savedPlayers,
-                synced: detailsSynced,
-                total: savedPlayers.length,
-                fromCache: false
-            };
-        } catch (error) {
-            console.error(`[TeamSync] Error syncing ${country}:`, error.message);
-            throw error;
-        } finally {
-            syncInProgress.delete(country);
-        }
-    })();
-
-    syncInProgress.set(country, syncPromise);
-    return syncPromise;
+// Sync state tracking
+let globalSyncState = {
+    isRunning: false,
+    offset: 0,
+    totalRows: 0,
+    playersSaved: 0,
+    lastSyncAt: null,
+    errors: [],
+    startedAt: null
 };
 
-/**
- * Get players for a team — serves from DB cache if fresh, otherwise syncs from API.
- */
-const getTeamPlayers = async (country) => {
-    // Check if we have fresh cached data
-    const regex = new RegExp(`^${country.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
-    const cachedPlayers = await Player.find({ country: regex, source: 'api' }).sort({ name: 1 });
-    const lastSync = teamSyncTimestamps.get(country);
+// How long before we consider crawled data stale
+const GLOBAL_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+const DELAY_BETWEEN_PAGES = 1500; // 1.5s between API calls to avoid rate limits
 
-    // If we have cached data and it's fresh enough, return it
-    if (cachedPlayers.length > 0 && lastSync && (Date.now() - lastSync < TEAM_CACHE_DURATION)) {
-        return {
-            players: cachedPlayers,
-            total: cachedPlayers.length,
-            fromCache: true,
-            lastSynced: new Date(lastSync)
-        };
-    }
-
-    // If we have cached data but it might be stale, return cached AND trigger background sync
-    if (cachedPlayers.length > 0) {
-        // Trigger background sync (don't await)
-        syncTeamFromApi(country, { fetchDetails: true, maxDetailFetches: 30 }).catch(err => {
-            console.error(`[TeamSync] Background sync failed for ${country}:`, err.message);
-        });
-
-        return {
-            players: cachedPlayers,
-            total: cachedPlayers.length,
-            fromCache: true,
-            syncing: true,
-            lastSynced: lastSync ? new Date(lastSync) : null
-        };
-    }
-
-    // No cache — must sync now
-    try {
-        const result = await syncTeamFromApi(country, { fetchDetails: true, maxDetailFetches: 30 });
-        return {
-            players: result.players,
-            total: result.total,
-            fromCache: false,
-            lastSynced: new Date()
-        };
-    } catch (error) {
-        // Final fallback: return whatever is in DB even if stale
-        const anyPlayers = await Player.find({ country: regex }).sort({ name: 1 });
-        if (anyPlayers.length > 0) {
-            return {
-                players: anyPlayers,
-                total: anyPlayers.length,
-                fromCache: true,
-                stale: true,
-                error: error.message
-            };
-        }
-        throw error;
-    }
-};
-
-/**
- * Sync all international teams (can be called on server start or via API)
- */
 const INTERNATIONAL_TEAMS = [
     'India', 'Australia', 'England', 'South Africa', 'New Zealand',
     'Pakistan', 'Sri Lanka', 'Bangladesh', 'West Indies', 'Zimbabwe',
@@ -205,33 +25,226 @@ const INTERNATIONAL_TEAMS = [
     'Papua New Guinea', 'Uganda', 'Kenya', 'Hong Kong'
 ];
 
-const syncAllTeams = async (onProgress = null) => {
-    const results = {};
-    let completed = 0;
+// Country name aliases — the API may use different names than our UI
+const COUNTRY_ALIASES = {
+    'USA': ['United States of America', 'United States', 'U.S.A.'],
+    'UAE': ['United Arab Emirates', 'U.A.E.'],
+    'Hong Kong': ['Hong Kong, China', 'Hong Kong China'],
+};
 
-    for (const team of INTERNATIONAL_TEAMS) {
+// Build reverse lookup: api_name -> our_name
+const ALIAS_TO_CANONICAL = {};
+for (const [canonical, aliases] of Object.entries(COUNTRY_ALIASES)) {
+    for (const alias of aliases) {
+        ALIAS_TO_CANONICAL[alias.toLowerCase()] = canonical;
+    }
+}
+
+/**
+ * Build a regex that matches a country name and all its aliases
+ */
+const countryRegex = (country) => {
+    const escaped = country.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const aliases = COUNTRY_ALIASES[country] || [];
+    const allNames = [escaped, ...aliases.map(a => a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))];
+    return new RegExp(`^(${allNames.join('|')})$`, 'i');
+};
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Crawl through the entire CricAPI player database, saving all players to MongoDB.
+ * The API returns 25 players per page. We paginate through everything.
+ * Can be run as a background job. Resumes from the last known offset.
+ * @param {object} options - { maxPages, startOffset, onProgress }
+ */
+const crawlAllPlayers = async (options = {}) => {
+    const { maxPages = 100, startOffset = null, onProgress = null } = options;
+
+    if (globalSyncState.isRunning) {
+        console.log('[TeamSync] Global sync already running. Skipping.');
+        return globalSyncState;
+    }
+
+    globalSyncState.isRunning = true;
+    globalSyncState.startedAt = Date.now();
+    globalSyncState.errors = [];
+
+    // Resume from last offset or start from scratch
+    let offset = startOffset !== null ? startOffset : globalSyncState.offset;
+    let pagesFetched = 0;
+
+    try {
+        console.log(`[TeamSync] Starting global player crawl from offset ${offset}...`);
+
+        for (let page = 0; page < maxPages; page++) {
+            try {
+                const data = await cricketApi.listPlayers(offset);
+                const players = data.data || [];
+                const totalRows = data.info?.totalRows || 0;
+                globalSyncState.totalRows = totalRows;
+
+                if (players.length === 0) {
+                    console.log(`[TeamSync] No more players at offset ${offset}. Crawl complete.`);
+                    globalSyncState.offset = 0; // Reset for next full crawl
+                    globalSyncState.lastSyncAt = Date.now();
+                    break;
+                }
+
+                // Bulk save players to MongoDB
+                const bulkOps = players.map(p => ({
+                    updateOne: {
+                        filter: { apiId: p.id },
+                        update: {
+                            $set: {
+                                apiId: p.id,
+                                name: p.name || 'Unknown',
+                                country: p.country || 'Unknown',
+                                image: p.playerImg || '',
+                                source: 'api'
+                            },
+                            $setOnInsert: {
+                                role: 'Unknown',
+                                stats: {},
+                                createdAt: new Date()
+                            }
+                        },
+                        upsert: true
+                    }
+                }));
+
+                if (bulkOps.length > 0) {
+                    await Player.bulkWrite(bulkOps, { ordered: false });
+                    globalSyncState.playersSaved += players.length;
+                }
+
+                offset += 25;
+                globalSyncState.offset = offset;
+                pagesFetched++;
+
+                if (onProgress) {
+                    onProgress({
+                        offset,
+                        totalRows,
+                        pagesFetched,
+                        playersSaved: globalSyncState.playersSaved
+                    });
+                }
+
+                // Log progress every 10 pages
+                if (pagesFetched % 10 === 0) {
+                    console.log(`[TeamSync] Crawled ${pagesFetched} pages, offset ${offset}/${totalRows}, ${globalSyncState.playersSaved} players saved`);
+                }
+
+                if (offset >= totalRows) {
+                    console.log(`[TeamSync] Reached end of player list. Total: ${totalRows}`);
+                    globalSyncState.offset = 0;
+                    globalSyncState.lastSyncAt = Date.now();
+                    break;
+                }
+
+                // Delay between calls to avoid rate limits
+                await sleep(DELAY_BETWEEN_PAGES);
+
+            } catch (err) {
+                const msg = err.message || '';
+                if (msg.includes('hits') || msg.includes('limit') || msg.includes('Block')) {
+                    console.log(`[TeamSync] Rate limit hit at offset ${offset}. Pausing crawl. Will resume later.`);
+                    globalSyncState.errors.push({ offset, error: 'Rate limited', time: Date.now() });
+                    break; // Stop but don't reset offset — we'll resume here next time
+                }
+                console.error(`[TeamSync] Error at offset ${offset}:`, msg);
+                globalSyncState.errors.push({ offset, error: msg, time: Date.now() });
+                offset += 25; // Skip this page and continue
+                globalSyncState.offset = offset;
+                await sleep(3000); // Extra delay after error
+            }
+        }
+
+        console.log(`[TeamSync] Crawl batch done. ${pagesFetched} pages, ${globalSyncState.playersSaved} total players saved.`);
+    } finally {
+        globalSyncState.isRunning = false;
+    }
+
+    return globalSyncState;
+};
+
+/**
+ * Get all players for a team from MongoDB.
+ */
+const getTeamPlayers = async (country) => {
+    const regex = countryRegex(country);
+    const players = await Player.find({ country: regex }).sort({ name: 1 });
+
+    if (players.length > 0) {
+        return {
+            players,
+            total: players.length,
+            fromCache: true,
+            lastSynced: globalSyncState.lastSyncAt ? new Date(globalSyncState.lastSyncAt) : null
+        };
+    }
+
+    // No players in DB for this country — check if sync is running
+    return {
+        players: [],
+        total: 0,
+        fromCache: false,
+        syncing: globalSyncState.isRunning,
+        message: globalSyncState.isRunning
+            ? `Player database is being built from the live API (${Math.round((globalSyncState.offset / Math.max(globalSyncState.totalRows, 1)) * 100)}% complete). Please check back in a moment.`
+            : 'No players found for this team yet. Start a global sync to fetch all players.'
+    };
+};
+
+/**
+ * Fetch detailed info for a specific team's players (roles, stats, batting/bowling style).
+ * This calls /players_info for each player that lacks details.
+ */
+const syncTeamDetails = async (country, maxPlayers = 30) => {
+    const regex = countryRegex(country);
+    const players = await Player.find({
+        country: regex,
+        source: 'api',
+        $or: [
+            { lastSynced: null },
+            { role: 'Unknown' },
+            { lastSynced: { $lt: new Date(Date.now() - GLOBAL_CACHE_DURATION) } }
+        ]
+    }).limit(maxPlayers);
+
+    let synced = 0;
+    for (const player of players) {
         try {
-            // Only fetch basic info for bulk sync to conserve API hits
-            const result = await syncTeamFromApi(team, { fetchDetails: false });
-            results[team] = { success: true, count: result.total };
+            await syncPlayerFromApi(player.apiId);
+            synced++;
         } catch (err) {
-            results[team] = { success: false, error: err.message };
-            // If rate limited, stop
             if (err.message && (err.message.includes('hits') || err.message.includes('limit') || err.message.includes('Block'))) {
-                console.log(`[TeamSync] Rate limit hit during bulk sync at ${team}. Stopping.`);
+                console.log(`[TeamSync] Rate limit hit after syncing ${synced} player details. Stopping.`);
                 break;
             }
         }
-        completed++;
-        if (onProgress) onProgress({ team, completed, total: INTERNATIONAL_TEAMS.length, results });
     }
-
-    return results;
+    return { synced, total: players.length };
 };
 
+/**
+ * Get sync progress status
+ */
+const getSyncStatus = () => ({
+    ...globalSyncState,
+    progress: globalSyncState.totalRows > 0
+        ? Math.round((globalSyncState.offset / globalSyncState.totalRows) * 100)
+        : 0
+});
+
 module.exports = {
-    syncTeamFromApi,
+    crawlAllPlayers,
     getTeamPlayers,
-    syncAllTeams,
-    INTERNATIONAL_TEAMS
+    syncTeamDetails,
+    getSyncStatus,
+    INTERNATIONAL_TEAMS,
+    COUNTRY_ALIASES,
+    ALIAS_TO_CANONICAL,
+    countryRegex
 };

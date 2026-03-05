@@ -56,8 +56,10 @@ const TeamsPage = () => {
     const [loadingMore, setLoadingMore] = useState(false);
     const [cachedRosters, setCachedRosters] = useState({});
     const [teamCounts, setTeamCounts] = useState({});
+    const [syncProgress, setSyncProgress] = useState(null); // { isRunning, progress, playersSaved, totalRows }
+    const [syncing, setSyncing] = useState(false);
 
-    // Fetch team player counts on mount
+    // Fetch team player counts and sync status on mount
     useEffect(() => {
         const fetchCounts = async () => {
             try {
@@ -69,8 +71,45 @@ const TeamsPage = () => {
                 console.error('Error fetching team counts:', err);
             }
         };
+        const fetchSyncStatus = async () => {
+            try {
+                const { data } = await axios.get(`${API}/sync-status`);
+                setSyncProgress(data);
+            } catch (err) {
+                // Ignore
+            }
+        };
         fetchCounts();
+        fetchSyncStatus();
+
+        // Poll sync status every 5s if a sync is running
+        const interval = setInterval(async () => {
+            try {
+                const { data } = await axios.get(`${API}/sync-status`);
+                setSyncProgress(data);
+                if (data.isRunning) {
+                    // Refresh team counts while syncing
+                    fetchCounts();
+                }
+            } catch (err) { /* ignore */ }
+        }, 5000);
+
+        return () => clearInterval(interval);
     }, []);
+
+    const startGlobalSync = async () => {
+        setSyncing(true);
+        try {
+            await axios.post(`${API}/sync-all?pages=200`);
+            // Poll sync status
+            const { data } = await axios.get(`${API}/sync-status`);
+            setSyncProgress(data);
+        } catch (err) {
+            console.error('Failed to start sync:', err);
+        } finally {
+            setSyncing(false);
+        }
+    };
 
     const selectTeam = (team) => {
         setSelectedTeam(team);
@@ -121,6 +160,9 @@ const TeamsPage = () => {
 
             if (data._notice) {
                 setNotice(data._notice);
+            }
+            if (data.message && fetchedPlayers.length === 0) {
+                setNotice(data.message);
             }
 
             if (append) {
@@ -245,6 +287,26 @@ const TeamsPage = () => {
                         </div>
 
                         {/* Filters */}
+                        {/* Sync Status Banner */}
+                        {syncProgress && syncProgress.isRunning && (
+                            <div className="mt-4 bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2 text-sm text-blue-300">
+                                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                        Building player database from live API...
+                                    </div>
+                                    <span className="text-xs text-blue-400 font-mono">{syncProgress.playersSaved || 0} players saved</span>
+                                </div>
+                                <div className="w-full bg-blue-900/50 rounded-full h-2">
+                                    <div
+                                        className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                                        style={{ width: `${syncProgress.progress || 0}%` }}
+                                    ></div>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">{syncProgress.progress || 0}% of {syncProgress.totalRows || '?'} total players</p>
+                            </div>
+                        )}
+
                         <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
                             <div className="relative flex-1 max-w-md">
                                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -257,6 +319,14 @@ const TeamsPage = () => {
                                 />
                             </div>
                             <div className="flex gap-2">
+                                <button
+                                    onClick={startGlobalSync}
+                                    disabled={syncing || (syncProgress && syncProgress.isRunning)}
+                                    className="px-4 py-2 rounded-xl text-sm font-medium transition-all bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white shadow-lg flex items-center gap-2"
+                                >
+                                    <svg className={`w-4 h-4 ${(syncing || (syncProgress && syncProgress.isRunning)) ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                    {syncProgress && syncProgress.isRunning ? 'Syncing...' : 'Sync Players'}
+                                </button>
                                 {[['all', 'All Teams'], ['full', 'Full Members'], ['associate', 'Associates']].map(([key, label]) => (
                                     <button
                                         key={key}
