@@ -44,12 +44,7 @@ const playerSchema = new mongoose.Schema({
             economy: Number, bestBatting: String, bestBowling: String
         }
     },
-    leagues: {
-        type: Map,
-        of: String,
-        default: {}
-    },
-    source: { type: String, enum: ['mock', 'api'], default: 'mock' },
+    source: { type: String, enum: ['api'], default: 'api' },
     lastSynced: { type: Date, default: null }
 }, { timestamps: true });
 
