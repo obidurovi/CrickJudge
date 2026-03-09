@@ -17,37 +17,23 @@ let globalSyncState = {
 const GLOBAL_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 const DELAY_BETWEEN_PAGES = 1500; // 1.5s between API calls to avoid rate limits
 
-const INTERNATIONAL_TEAMS = [
-    'India', 'Australia', 'England', 'South Africa', 'New Zealand',
-    'Pakistan', 'Sri Lanka', 'Bangladesh', 'West Indies', 'Zimbabwe',
-    'Afghanistan', 'Ireland', 'Netherlands', 'Scotland', 'Nepal',
-    'USA', 'UAE', 'Oman', 'Namibia', 'Canada',
-    'Papua New Guinea', 'Uganda', 'Kenya', 'Hong Kong'
-];
-
-// Country name aliases — the API may use different names than our UI
-const COUNTRY_ALIASES = {
-    'USA': ['United States of America', 'United States', 'U.S.A.'],
-    'UAE': ['United Arab Emirates', 'U.A.E.'],
-    'Hong Kong': ['Hong Kong, China', 'Hong Kong China'],
+/**
+ * Get all teams with player counts from MongoDB — fully dynamic from the live API.
+ */
+const getAllTeams = async () => {
+    const results = await Player.aggregate([
+        { $match: { country: { $nin: [null, '', 'Unknown'] } } },
+        { $group: { _id: '$country', playerCount: { $sum: 1 } } },
+        { $sort: { playerCount: -1 } }
+    ]);
+    return results.map(r => ({ name: r._id, playerCount: r.playerCount }));
 };
 
-// Build reverse lookup: api_name -> our_name
-const ALIAS_TO_CANONICAL = {};
-for (const [canonical, aliases] of Object.entries(COUNTRY_ALIASES)) {
-    for (const alias of aliases) {
-        ALIAS_TO_CANONICAL[alias.toLowerCase()] = canonical;
-    }
-}
-
 /**
- * Build a regex that matches a country name and all its aliases
+ * Build a case-insensitive exact-match regex for a country name.
  */
 const countryRegex = (country) => {
-    const escaped = country.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const aliases = COUNTRY_ALIASES[country] || [];
-    const allNames = [escaped, ...aliases.map(a => a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))];
-    return new RegExp(`^(${allNames.join('|')})$`, 'i');
+    return new RegExp(`^${country.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 };
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -243,8 +229,5 @@ module.exports = {
     getTeamPlayers,
     syncTeamDetails,
     getSyncStatus,
-    INTERNATIONAL_TEAMS,
-    COUNTRY_ALIASES,
-    ALIAS_TO_CANONICAL,
-    countryRegex
+    getAllTeams
 };

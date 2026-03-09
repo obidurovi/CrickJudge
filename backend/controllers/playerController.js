@@ -1,7 +1,7 @@
 const Player = require('../models/Player');
 const cricketApi = require('../utils/cricketApi');
 const { syncPlayerFromApi } = require('../utils/playerSync');
-const { getTeamPlayers, crawlAllPlayers, syncTeamDetails, getSyncStatus, INTERNATIONAL_TEAMS, COUNTRY_ALIASES, ALIAS_TO_CANONICAL, countryRegex } = require('../utils/teamSync');
+const { getTeamPlayers, crawlAllPlayers, syncTeamDetails, getSyncStatus, getAllTeams } = require('../utils/teamSync');
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
@@ -230,37 +230,7 @@ const getSyncStatusEndpoint = async (req, res) => {
  */
 const getTeamsList = async (req, res) => {
     try {
-        // Get player counts from DB for each country
-        const countPipeline = [
-            { $match: { country: { $ne: null } } },
-            { $group: { _id: '$country', count: { $sum: 1 } } },
-            { $sort: { _id: 1 } }
-        ];
-        const dbCounts = await Player.aggregate(countPipeline);
-
-        // Build count map with alias merging
-        const teamCountMap = new Map();
-        for (const c of dbCounts) {
-            const rawName = c._id;
-            // Check if this is an alias for a canonical team name
-            const canonical = ALIAS_TO_CANONICAL[rawName.toLowerCase()] || rawName;
-            teamCountMap.set(canonical, (teamCountMap.get(canonical) || 0) + c.count);
-        }
-
-        // Build team list — include all international teams
-        const teams = INTERNATIONAL_TEAMS.map(name => ({
-            name,
-            playerCount: teamCountMap.get(name) || 0
-        }));
-
-        // Also include any countries from DB that aren't in our predefined list
-        for (const [name, count] of teamCountMap) {
-            if (!INTERNATIONAL_TEAMS.includes(name) && name !== 'Unknown') {
-                teams.push({ name, playerCount: count });
-            }
-        }
-
-        teams.sort((a, b) => a.name.localeCompare(b.name));
+        const teams = await getAllTeams();
         res.json(teams);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -270,9 +240,7 @@ const getTeamsList = async (req, res) => {
 const getPlayerCountries = async (req, res) => {
     try {
         const countries = await Player.distinct('country');
-        // Include all known international teams even if not in DB yet
-        const allCountries = new Set([...countries.filter(c => c && c !== 'Unknown'), ...INTERNATIONAL_TEAMS]);
-        res.json([...allCountries].sort());
+        res.json(countries.filter(c => c && c !== 'Unknown').sort());
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
