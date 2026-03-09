@@ -135,8 +135,9 @@ const getPlayerDetail = async (req, res) => {
 const getPlayersByTeam = async (req, res) => {
     try {
         const { country } = req.params;
+        const gender = req.query.gender || null;
 
-        const result = await getTeamPlayers(country);
+        const result = await getTeamPlayers(country, gender);
 
         return res.json({
             players: result.players,

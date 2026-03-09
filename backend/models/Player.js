@@ -4,6 +4,7 @@ const playerSchema = new mongoose.Schema({
     apiId: { type: String, unique: true, sparse: true },
     name: { type: String, required: true },
     country: { type: String, default: 'Unknown' },
+    gender: { type: String, enum: ['male', 'female', 'unknown'], default: 'unknown' },
     role: { type: String, default: 'Unknown' },
     battingStyle: { type: String, default: '' },
     bowlingStyle: { type: String, default: '' },

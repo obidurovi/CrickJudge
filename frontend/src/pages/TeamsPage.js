@@ -12,6 +12,7 @@ const TEAMS = [
 
 const TeamsPage = () => {
     const [selectedTeam, setSelectedTeam] = useState(null);
+    const [gender, setGender] = useState('male');
     const [players, setPlayers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -22,7 +23,7 @@ const TeamsPage = () => {
             setLoading(true);
             setError(null);
             try {
-                const { data } = await axios.get(`${API}/team/${encodeURIComponent(selectedTeam)}`);
+                const { data } = await axios.get(`${API}/team/${encodeURIComponent(selectedTeam)}?gender=${gender}`);
                 setPlayers(data.players || []);
             } catch (err) {
                 setError('Failed to load team players');
@@ -31,7 +32,7 @@ const TeamsPage = () => {
             }
         };
         fetchTeamPlayers();
-    }, [selectedTeam]);
+    }, [selectedTeam, gender]);
 
     return (
         <div className="p-8">
@@ -55,7 +56,31 @@ const TeamsPage = () => {
 
             {selectedTeam && (
                 <div>
-                    <h2 className="text-xl font-semibold text-white mb-4">{selectedTeam} Players</h2>
+                    <div className="flex items-center gap-4 mb-4">
+                        <h2 className="text-xl font-semibold text-white">{selectedTeam}</h2>
+                        <div className="flex rounded-lg overflow-hidden border border-slate-600">
+                            <button
+                                onClick={() => setGender('male')}
+                                className={`px-4 py-1.5 text-sm font-medium transition-all ${
+                                    gender === 'male'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-slate-800 text-slate-400 hover:text-white'
+                                }`}
+                            >
+                                Men
+                            </button>
+                            <button
+                                onClick={() => setGender('female')}
+                                className={`px-4 py-1.5 text-sm font-medium transition-all ${
+                                    gender === 'female'
+                                        ? 'bg-pink-600 text-white'
+                                        : 'bg-slate-800 text-slate-400 hover:text-white'
+                                }`}
+                            >
+                                Women
+                            </button>
+                        </div>
+                    </div>
                     {loading && <p className="text-slate-400">Loading...</p>}
                     {error && <p className="text-red-400">{error}</p>}
                     {!loading && !error && players.length === 0 && (

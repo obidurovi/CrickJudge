@@ -86,6 +86,7 @@ const crawlAllPlayers = async (options = {}) => {
                                 apiId: p.id,
                                 name: p.name || 'Unknown',
                                 country: p.country || 'Unknown',
+                                gender: (p.gender || 'unknown').toLowerCase(),
                                 image: p.playerImg || '',
                                 source: 'api'
                             },
@@ -158,9 +159,13 @@ const crawlAllPlayers = async (options = {}) => {
 /**
  * Get all players for a team from MongoDB.
  */
-const getTeamPlayers = async (country) => {
+const getTeamPlayers = async (country, gender = null) => {
     const regex = countryRegex(country);
-    const players = await Player.find({ country: regex }).sort({ name: 1 });
+    const query = { country: regex };
+    if (gender && ['male', 'female'].includes(gender)) {
+        query.gender = gender;
+    }
+    const players = await Player.find(query).sort({ name: 1 });
 
     if (players.length > 0) {
         return {

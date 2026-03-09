@@ -36,6 +36,7 @@ const mapPlayerData = (apiPlayer, detailedData = null) => {
         apiId: apiPlayer.id,
         name: apiPlayer.name || 'Unknown',
         country: apiPlayer.country || 'Unknown',
+        gender: (apiPlayer.gender || 'unknown').toLowerCase(),
         image: apiPlayer.playerImg || '',
         dateOfBirth: apiPlayer.dateOfBirth || '',
         placeOfBirth: apiPlayer.placeOfBirth || '',
