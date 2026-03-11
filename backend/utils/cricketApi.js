@@ -1,23 +1,14 @@
 const axios = require('axios');
+const cache = require('../config/cache');
 
 const API_BASE = 'https://api.cricapi.com/v1';
-const cache = new Map();
-
-const getCached = (key, duration) => {
-    const entry = cache.get(key);
-    if (entry && Date.now() - entry.ts < duration) return entry.data;
-    cache.delete(key);
-    return null;
-};
-
-const setCache = (key, data) => cache.set(key, { data, ts: Date.now() });
 
 const request = async (endpoint, params = {}, cacheDuration = 60000) => {
     const apiKey = process.env.CRICKET_API_KEY;
     if (!apiKey) throw new Error('CRICKET_API_KEY is not configured');
 
-    const key = `${endpoint}:${JSON.stringify(params)}`;
-    const cached = getCached(key, cacheDuration);
+    const key = `cric:api:${endpoint}:${JSON.stringify(params)}`;
+    const cached = await cache.getJSON(key);
     if (cached) return cached;
 
     const { data } = await axios.get(`${API_BASE}${endpoint}`, {
@@ -29,7 +20,8 @@ const request = async (endpoint, params = {}, cacheDuration = 60000) => {
         throw new Error(data.reason || 'API request failed');
     }
 
-    setCache(key, data);
+    // Store with TTL in seconds (cacheDuration comes in ms)
+    await cache.setJSON(key, data, Math.ceil(cacheDuration / 1000));
     return data;
 };
 

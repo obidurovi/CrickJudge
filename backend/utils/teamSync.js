@@ -2,6 +2,7 @@ const Player = require('../models/Player');
 const cricketApi = require('./cricketApi');
 const { syncPlayerFromApi } = require('./playerSync');
 const { broadcast } = require('./sseManager');
+const cache = require('../config/cache');
 
 // Sync state tracking
 let globalSyncState = {
@@ -22,12 +23,20 @@ const DELAY_BETWEEN_PAGES = 1500; // 1.5s between API calls to avoid rate limits
  * Get all teams with player counts from MongoDB — fully dynamic from the live API.
  */
 const getAllTeams = async () => {
+    // Check Valkey cache
+    const cacheKey = 'cric:teams:list';
+    const cached = await cache.getJSON(cacheKey);
+    if (cached) return cached;
+
     const results = await Player.aggregate([
         { $match: { country: { $nin: [null, '', 'Unknown'] } } },
         { $group: { _id: '$country', playerCount: { $sum: 1 } } },
         { $sort: { playerCount: -1 } }
     ]);
-    return results.map(r => ({ name: r._id, playerCount: r.playerCount }));
+    const teams = results.map(r => ({ name: r._id, playerCount: r.playerCount }));
+    // Cache for 5 minutes
+    await cache.setJSON(cacheKey, teams, 300);
+    return teams;
 };
 
 /**
@@ -164,6 +173,12 @@ const crawlAllPlayers = async (options = {}) => {
 
         console.log(`[TeamSync] Crawl batch done. ${pagesFetched} pages, ${globalSyncState.playersSaved} total players saved.`);
         broadcast('sync:status', 'sync:complete', getSyncStatus());
+
+        // Invalidate stale caches after crawl
+        await cache.delPattern('cric:players:list:*');
+        await cache.delPattern('cric:players:search:*');
+        await cache.del('cric:teams:list');
+        await cache.del('cric:players:countries');
     } finally {
         globalSyncState.isRunning = false;
     }
@@ -315,6 +330,11 @@ const syncTeamDetails = async (country, maxPlayers = 50) => {
 
     teamSyncState[teamKey].isRunning = false;
     console.log(`[TeamSync] Detail sync for ${country} done: ${synced}/${players.length} players enriched.`);
+
+    // Invalidate team player caches in Valkey
+    await cache.delPattern(`cric:players:team:${teamKey}:*`);
+    await cache.del('cric:teams:list');
+
     broadcast(`team:${teamKey}:male`, 'team:syncComplete', { team: country, synced, total: players.length });
     broadcast(`team:${teamKey}:female`, 'team:syncComplete', { team: country, synced, total: players.length });
     broadcast('sync:status', 'sync:teamComplete', { team: country, synced, total: players.length });

@@ -2,19 +2,26 @@ const Player = require('../models/Player');
 const cricketApi = require('../utils/cricketApi');
 const { syncPlayerFromApi } = require('../utils/playerSync');
 const { getTeamPlayers, crawlAllPlayers, syncTeamDetails, getSyncStatus, getAllTeams } = require('../utils/teamSync');
+const cache = require('../config/cache');
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
 const listPlayers = async (req, res) => {
     try {
         const offset = parseInt(req.query.offset) || 0;
+
+        // Check Valkey cache first
+        const cacheKey = `cric:players:list:${offset}`;
+        const cachedResult = await cache.getJSON(cacheKey);
+        if (cachedResult) return res.json(cachedResult);
+
         const data = await cricketApi.listPlayers(offset);
         const apiPlayers = data.data || [];
         const totalRows = data.info?.totalRows || 0;
 
         const apiIds = apiPlayers.map(p => p.id);
-        const cached = await Player.find({ apiId: { $in: apiIds } });
-        const cacheMap = new Map(cached.map(p => [p.apiId, p]));
+        const dbCached = await Player.find({ apiId: { $in: apiIds } });
+        const cacheMap = new Map(dbCached.map(p => [p.apiId, p]));
 
         const players = apiPlayers.map(p => {
             if (cacheMap.has(p.id)) {
@@ -29,13 +36,17 @@ const listPlayers = async (req, res) => {
             };
         });
 
-        res.json({
+        const result = {
             players,
             total: totalRows,
             offset,
             perPage: 25,
             hasMore: offset + 25 < totalRows
-        });
+        };
+
+        // Cache for 5 minutes
+        await cache.setJSON(cacheKey, result, 300);
+        res.json(result);
     } catch (error) {
         if (error.message.includes('CRICKET_API_KEY')) {
             return res.status(503).json({ message: 'API key not configured', code: 'API_KEY_MISSING' });
@@ -69,12 +80,17 @@ const searchPlayers = async (req, res) => {
             return res.status(400).json({ message: 'Search query must be at least 2 characters' });
         }
 
+        // Check Valkey cache
+        const cacheKey = `cric:players:search:${q.toLowerCase()}`;
+        const cachedResult = await cache.getJSON(cacheKey);
+        if (cachedResult) return res.json(cachedResult);
+
         const data = await cricketApi.listPlayers(0, q);
         const apiPlayers = data.data || [];
 
         const apiIds = apiPlayers.map(p => p.id);
-        const cached = await Player.find({ apiId: { $in: apiIds } });
-        const cacheMap = new Map(cached.map(p => [p.apiId, p]));
+        const dbCached = await Player.find({ apiId: { $in: apiIds } });
+        const cacheMap = new Map(dbCached.map(p => [p.apiId, p]));
 
         const players = apiPlayers.map(p => {
             if (cacheMap.has(p.id)) {
@@ -89,7 +105,10 @@ const searchPlayers = async (req, res) => {
             };
         });
 
-        res.json({ players, total: apiPlayers.length });
+        const result = { players, total: apiPlayers.length };
+        // Cache search results for 3 minutes
+        await cache.setJSON(cacheKey, result, 180);
+        res.json(result);
     } catch (error) {
         if (error.message.includes('CRICKET_API_KEY')) {
             return res.status(503).json({ message: 'API key not configured', code: 'API_KEY_MISSING' });
@@ -111,21 +130,32 @@ const getPlayerDetail = async (req, res) => {
     try {
         const { apiId } = req.params;
 
+        // Check Valkey cache for hot player data
+        const cacheKey = `cric:players:detail:${apiId}`;
+        const cachedPlayer = await cache.getJSON(cacheKey);
+        if (cachedPlayer) return res.json(cachedPlayer);
+
         let player = await Player.findOne({ apiId });
         if (player && player.lastSynced && (Date.now() - player.lastSynced.getTime() < CACHE_DURATION)) {
+            // Cache in Valkey for 5 minutes
+            await cache.setJSON(cacheKey, player, 300);
             return res.json(player);
         }
 
         try {
             const synced = await syncPlayerFromApi(apiId);
             if (synced) {
+                await cache.setJSON(cacheKey, synced, 300);
                 return res.json(synced);
             }
         } catch (syncErr) {
             // Rate limit — fall through to cached data
         }
 
-        if (player) return res.json(player);
+        if (player) {
+            await cache.setJSON(cacheKey, player, 300);
+            return res.json(player);
+        }
 
         return res.status(404).json({ message: 'Player not found' });
     } catch (error) {
@@ -141,9 +171,16 @@ const getPlayersByTeam = async (req, res) => {
         const { country } = req.params;
         const gender = req.query.gender || null;
 
+        // Check Valkey cache (short TTL since syncing changes data frequently)
+        const cacheKey = `cric:players:team:${country.toLowerCase()}:${gender || 'all'}`;
+        const cachedResult = await cache.getJSON(cacheKey);
+        if (cachedResult && !cachedResult.syncing) {
+            return res.json(cachedResult);
+        }
+
         const result = await getTeamPlayers(country, gender);
 
-        return res.json({
+        const response = {
             players: result.players,
             total: result.total,
             offset: 0,
@@ -155,7 +192,14 @@ const getPlayersByTeam = async (req, res) => {
             lastSynced: result.lastSynced || null,
             message: result.message || null,
             source: 'api'
-        });
+        };
+
+        // Only cache if not actively syncing (60s TTL)
+        if (!result.syncing) {
+            await cache.setJSON(cacheKey, response, 60);
+        }
+
+        return res.json(response);
     } catch (error) {
         if (error.message && (error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Block'))) {
             // Rate limited — try to serve from DB cache
@@ -237,7 +281,14 @@ const getSyncStatusEndpoint = async (req, res) => {
  */
 const getTeamsList = async (req, res) => {
     try {
+        // Check Valkey cache
+        const cacheKey = 'cric:teams:list';
+        const cachedTeams = await cache.getJSON(cacheKey);
+        if (cachedTeams) return res.json(cachedTeams);
+
         const teams = await getAllTeams();
+        // Cache for 5 minutes
+        await cache.setJSON(cacheKey, teams, 300);
         res.json(teams);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -246,8 +297,16 @@ const getTeamsList = async (req, res) => {
 
 const getPlayerCountries = async (req, res) => {
     try {
+        // Check Valkey cache
+        const cacheKey = 'cric:players:countries';
+        const cachedCountries = await cache.getJSON(cacheKey);
+        if (cachedCountries) return res.json(cachedCountries);
+
         const countries = await Player.distinct('country');
-        res.json(countries.filter(c => c && c !== 'Unknown').sort());
+        const result = countries.filter(c => c && c !== 'Unknown').sort();
+        // Cache for 10 minutes
+        await cache.setJSON(cacheKey, result, 600);
+        res.json(result);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

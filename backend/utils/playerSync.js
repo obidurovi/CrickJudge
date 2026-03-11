@@ -1,6 +1,7 @@
 const Player = require('../models/Player');
 const cricketApi = require('./cricketApi');
 const { broadcast } = require('./sseManager');
+const cache = require('../config/cache');
 
 const parseNumber = (val) => {
     if (val === undefined || val === null || val === '' || val === '-') return 0;
@@ -105,6 +106,9 @@ const syncPlayerFromApi = async (playerApiId) => {
             mapped,
             { upsert: true, new: true, setDefaultsOnInsert: true }
         );
+
+        // Invalidate cached player detail in Valkey
+        await cache.del(`cric:players:detail:${playerApiId}`);
 
         // Broadcast individual player update
         broadcast(`player:${playerApiId}`, 'player:update', player);

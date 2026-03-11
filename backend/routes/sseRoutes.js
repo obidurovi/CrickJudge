@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { addClient, getStats } = require('../utils/sseManager');
 const { getSyncStatus } = require('../utils/teamSync');
+const cacheModule = require('../config/cache');
 
 /**
  * GET /api/sse/matches
@@ -54,6 +55,14 @@ router.get('/dashboard', (req, res) => {
  */
 router.get('/stats', (req, res) => {
     res.json(getStats());
+});
+
+/**
+ * GET /api/sse/cache-stats — cache health endpoint
+ */
+router.get('/cache-stats', async (req, res) => {
+    const stats = await cacheModule.getStats();
+    res.json(stats);
 });
 
 module.exports = router;
