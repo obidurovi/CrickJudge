@@ -16,15 +16,20 @@ const TeamsPage = () => {
     const [players, setPlayers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [message, setMessage] = useState(null);
+    const [total, setTotal] = useState(0);
 
     useEffect(() => {
         if (!selectedTeam) return;
         const fetchTeamPlayers = async () => {
             setLoading(true);
             setError(null);
+            setMessage(null);
             try {
                 const { data } = await axios.get(`${API}/team/${encodeURIComponent(selectedTeam)}?gender=${gender}`);
                 setPlayers(data.players || []);
+                setTotal(data.total || 0);
+                if (data.message) setMessage(data.message);
             } catch (err) {
                 setError('Failed to load team players');
             } finally {
@@ -81,20 +86,47 @@ const TeamsPage = () => {
                             </button>
                         </div>
                     </div>
-                    {loading && <p className="text-slate-400">Loading...</p>}
+                    {loading && <p className="text-slate-400">Loading players...</p>}
                     {error && <p className="text-red-400">{error}</p>}
-                    {!loading && !error && players.length === 0 && (
+                    {message && !loading && (
+                        <p className="text-amber-400 text-sm mb-4 bg-amber-900/20 border border-amber-800 rounded-lg px-4 py-2">{message}</p>
+                    )}
+                    {!loading && !error && players.length === 0 && !message && (
                         <p className="text-slate-500">No players found for {selectedTeam}.</p>
+                    )}
+                    {!loading && players.length > 0 && (
+                        <p className="text-slate-400 text-sm mb-4">{total} player{total !== 1 ? 's' : ''}</p>
                     )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {players.map(player => (
                             <Link
                                 key={player.apiId || player._id}
                                 to={`/player/${player.apiId}`}
-                                className="bg-slate-800 border border-slate-700 rounded-xl p-4 hover:bg-slate-700 transition-all"
+                                className="bg-slate-800 border border-slate-700 rounded-xl p-4 hover:bg-slate-700 transition-all flex items-center gap-4"
                             >
-                                <p className="text-white font-semibold">{player.name}</p>
-                                {player.country && <p className="text-slate-400 text-sm">{player.country}</p>}
+                                {player.image ? (
+                                    <img
+                                        src={player.image}
+                                        alt={player.name}
+                                        className="w-12 h-12 rounded-full object-cover bg-slate-700 flex-shrink-0"
+                                    />
+                                ) : (
+                                    <div className="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 text-slate-400 text-lg font-bold">
+                                        {player.name?.charAt(0)}
+                                    </div>
+                                )}
+                                <div className="min-w-0">
+                                    <p className="text-white font-semibold truncate">{player.name}</p>
+                                    {player.role && player.role !== 'Unknown' && (
+                                        <p className="text-slate-400 text-xs">{player.role}</p>
+                                    )}
+                                    {player.stats && player.stats.matches > 0 && (
+                                        <p className="text-slate-500 text-xs mt-0.5">
+                                            {player.stats.matches} matches · {player.stats.runs} runs
+                                            {player.stats.wickets > 0 && ` · ${player.stats.wickets} wkts`}
+                                        </p>
+                                    )}
+                                </div>
                             </Link>
                         ))}
                     </div>

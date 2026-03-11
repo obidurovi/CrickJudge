@@ -78,27 +78,36 @@ const crawlAllPlayers = async (options = {}) => {
                 }
 
                 // Bulk save players to MongoDB
-                const bulkOps = players.map(p => ({
-                    updateOne: {
-                        filter: { apiId: p.id },
-                        update: {
-                            $set: {
-                                apiId: p.id,
-                                name: p.name || 'Unknown',
-                                country: p.country || 'Unknown',
-                                gender: (p.gender || 'unknown').toLowerCase(),
-                                image: p.playerImg || '',
-                                source: 'api'
+                const bulkOps = players.map(p => {
+                    const op = {
+                        updateOne: {
+                            filter: { apiId: p.id },
+                            update: {
+                                $set: {
+                                    apiId: p.id,
+                                    name: p.name || 'Unknown',
+                                    country: p.country || 'Unknown',
+                                    image: p.playerImg || '',
+                                    source: 'api'
+                                },
+                                $setOnInsert: {
+                                    role: 'Unknown',
+                                    stats: {},
+                                    createdAt: new Date()
+                                }
                             },
-                            $setOnInsert: {
-                                role: 'Unknown',
-                                stats: {},
-                                createdAt: new Date()
-                            }
-                        },
-                        upsert: true
+                            upsert: true
+                        }
+                    };
+                    // Only set gender if the API actually provides it;
+                    // otherwise leave existing value (or let $setOnInsert handle new docs)
+                    if (p.gender) {
+                        op.updateOne.update.$set.gender = p.gender.toLowerCase();
+                    } else {
+                        op.updateOne.update.$setOnInsert.gender = 'unknown';
                     }
-                }));
+                    return op;
+                });
 
                 if (bulkOps.length > 0) {
                     await Player.bulkWrite(bulkOps, { ordered: false });
@@ -162,8 +171,12 @@ const crawlAllPlayers = async (options = {}) => {
 const getTeamPlayers = async (country, gender = null) => {
     const regex = countryRegex(country);
     const query = { country: regex };
-    if (gender && ['male', 'female'].includes(gender)) {
-        query.gender = gender;
+    if (gender === 'female') {
+        // Women: show only confirmed female players
+        query.gender = 'female';
+    } else if (gender === 'male') {
+        // Men: show confirmed male + unknown (API list endpoint doesn't return gender)
+        query.gender = { $in: ['male', 'unknown'] };
     }
     const players = await Player.find(query).sort({ name: 1 });
 
