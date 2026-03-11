@@ -21,9 +21,9 @@ const TeamsPage = () => {
     const [total, setTotal] = useState(0);
     const [syncing, setSyncing] = useState(false);
 
-    const fetchTeamPlayers = useCallback(async () => {
+    const fetchTeamPlayers = useCallback(async (showLoading = true) => {
         if (!selectedTeam) return;
-        setLoading(true);
+        if (showLoading) setLoading(true);
         setError(null);
         try {
             const { data } = await axios.get(`${API}/team/${encodeURIComponent(selectedTeam)}?gender=${gender}`);
@@ -53,13 +53,16 @@ const TeamsPage = () => {
         'team:playerSynced': (data) => {
             setSyncing(true);
             setMessage(`Fetching latest player details... (${data.synced}/${data.total} players updated)`);
-            // Re-fetch to get properly filtered results
-            fetchTeamPlayers();
+            // Silent re-fetch (no loading flash)
+            fetchTeamPlayers(false);
         },
-        'team:syncComplete': () => {
+        'team:syncComplete': (data) => {
             setSyncing(false);
             setMessage(null);
-            fetchTeamPlayers();
+            // Only refetch if players were actually synced to avoid triggering another sync loop
+            if (data && data.synced > 0) {
+                fetchTeamPlayers(false);
+            }
         },
         'sync:progress': () => {
             // Global crawl progress — could update a status bar

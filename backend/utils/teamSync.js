@@ -188,6 +188,9 @@ const crawlAllPlayers = async (options = {}) => {
 
 // Track per-team detail sync state
 const teamSyncState = {};
+// Cooldown tracker: don't re-trigger sync if rate-limited recently
+const teamSyncCooldown = {};
+const SYNC_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes after rate-limit
 
 /**
  * Get all players for a team from MongoDB.
@@ -229,7 +232,9 @@ const getTeamPlayers = async (country, gender = null) => {
     // Auto-trigger background detail sync if unsynced players exist
     const teamKey = country.toLowerCase();
     const isSyncing = teamSyncState[teamKey]?.isRunning || false;
-    if (unsyncedCount > 0 && !isSyncing) {
+    const cooldownUntil = teamSyncCooldown[teamKey] || 0;
+    const onCooldown = Date.now() < cooldownUntil;
+    if (unsyncedCount > 0 && !isSyncing && !onCooldown) {
         // Fire-and-forget background sync
         syncTeamDetails(country, 50).catch(err => {
             console.error(`[TeamSync] Background detail sync for ${country} failed:`, err.message);
@@ -320,7 +325,8 @@ const syncTeamDetails = async (country, maxPlayers = 50) => {
             await sleep(1200);
         } catch (err) {
             if (err.message && (err.message.includes('hits') || err.message.includes('limit') || err.message.includes('Block'))) {
-                console.log(`[TeamSync] Rate limit hit after syncing ${synced} player details for ${country}. Will retry later.`);
+                console.log(`[TeamSync] Rate limit hit after syncing ${synced} player details for ${country}. Cooldown ${SYNC_COOLDOWN_MS / 1000}s.`);
+                teamSyncCooldown[teamKey] = Date.now() + SYNC_COOLDOWN_MS;
                 break;
             }
             // Skip individual player errors and continue
