@@ -116,9 +116,13 @@ const getPlayerDetail = async (req, res) => {
             return res.json(player);
         }
 
-        const synced = await syncPlayerFromApi(apiId);
-        if (synced) {
-            return res.json(synced);
+        try {
+            const synced = await syncPlayerFromApi(apiId);
+            if (synced) {
+                return res.json(synced);
+            }
+        } catch (syncErr) {
+            // Rate limit — fall through to cached data
         }
 
         if (player) return res.json(player);
@@ -146,6 +150,8 @@ const getPlayersByTeam = async (req, res) => {
             hasMore: false,
             fromCache: result.fromCache || false,
             syncing: result.syncing || false,
+            syncProgress: result.syncProgress || null,
+            unsyncedCount: result.unsyncedCount || 0,
             lastSynced: result.lastSynced || null,
             message: result.message || null,
             source: 'api'

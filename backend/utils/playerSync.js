@@ -48,6 +48,10 @@ const mapPlayerData = (apiPlayer, detailedData = null) => {
         mapped.role = detailedData.role || 'Unknown';
         mapped.battingStyle = detailedData.battingStyle || '';
         mapped.bowlingStyle = detailedData.bowlingStyle || '';
+        // Re-check gender from detailed data (more reliable than list endpoint)
+        if (detailedData.gender) {
+            mapped.gender = detailedData.gender.toLowerCase();
+        }
 
         if (detailedData.stats && Array.isArray(detailedData.stats) && detailedData.stats.length > 0) {
             mapped.detailedStats = {
@@ -103,6 +107,10 @@ const syncPlayerFromApi = async (playerApiId) => {
 
         return player;
     } catch (error) {
+        // Re-throw rate limit errors so callers can stop
+        if (error.message && (error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Block'))) {
+            throw error;
+        }
         console.error(`Error syncing player ${playerApiId}:`, error.message);
         return null;
     }

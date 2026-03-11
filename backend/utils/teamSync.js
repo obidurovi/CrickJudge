@@ -165,47 +165,105 @@ const crawlAllPlayers = async (options = {}) => {
     return globalSyncState;
 };
 
+// Track per-team detail sync state
+const teamSyncState = {};
+
 /**
  * Get all players for a team from MongoDB.
+ * Only returns detail-synced players with proper gender & international stats.
+ * Auto-triggers background detail sync for unsync'd players.
  */
 const getTeamPlayers = async (country, gender = null) => {
     const regex = countryRegex(country);
-    const query = { country: regex };
+
+    // Count total raw and unsynced players for this country
+    const totalRaw = await Player.countDocuments({ country: regex });
+    const unsyncedCount = await Player.countDocuments({
+        country: regex,
+        $or: [{ lastSynced: null }, { lastSynced: { $lt: new Date(Date.now() - GLOBAL_CACHE_DURATION) } }]
+    });
+
+    // Build query: only return detail-synced players with international stats
+    const query = {
+        country: regex,
+        lastSynced: { $ne: null }
+    };
+
     if (gender === 'female') {
-        // Women: show only confirmed female players
         query.gender = 'female';
     } else if (gender === 'male') {
-        // Men: show confirmed male + unknown (API list endpoint doesn't return gender)
-        query.gender = { $in: ['male', 'unknown'] };
+        // Match male, unknown, null, or missing gender field
+        query.gender = { $nin: ['female'] };
     }
-    const players = await Player.find(query).sort({ name: 1 });
+
+    // Filter: must have at least 1 international match (test/odi/t20i)
+    query.$or = [
+        { 'detailedStats.test.matches': { $gt: 0 } },
+        { 'detailedStats.odi.matches': { $gt: 0 } },
+        { 'detailedStats.t20i.matches': { $gt: 0 } }
+    ];
+
+    const players = await Player.find(query).sort({ 'stats.matches': -1, name: 1 });
+
+    // Auto-trigger background detail sync if unsynced players exist
+    const teamKey = country.toLowerCase();
+    const isSyncing = teamSyncState[teamKey]?.isRunning || false;
+    if (unsyncedCount > 0 && !isSyncing) {
+        // Fire-and-forget background sync
+        syncTeamDetails(country, 50).catch(err => {
+            console.error(`[TeamSync] Background detail sync for ${country} failed:`, err.message);
+        });
+    }
+
+    const syncProgress = teamSyncState[teamKey] || {};
 
     if (players.length > 0) {
         return {
             players,
             total: players.length,
             fromCache: true,
-            lastSynced: globalSyncState.lastSyncAt ? new Date(globalSyncState.lastSyncAt) : null
+            syncing: isSyncing,
+            syncProgress: isSyncing ? {
+                synced: syncProgress.synced || 0,
+                total: syncProgress.total || 0
+            } : null,
+            unsyncedCount,
+            lastSynced: globalSyncState.lastSyncAt ? new Date(globalSyncState.lastSyncAt) : null,
+            message: isSyncing
+                ? `Fetching latest player details... (${syncProgress.synced || 0}/${syncProgress.total || unsyncedCount} players updated)`
+                : null
         };
     }
 
-    // No players in DB for this country — check if sync is running
+    // No synced players yet
     return {
         players: [],
         total: 0,
         fromCache: false,
-        syncing: globalSyncState.isRunning,
-        message: globalSyncState.isRunning
-            ? `Player database is being built from the live API (${Math.round((globalSyncState.offset / Math.max(globalSyncState.totalRows, 1)) * 100)}% complete). Please check back in a moment.`
-            : 'No players found for this team yet. Start a global sync to fetch all players.'
+        syncing: isSyncing || unsyncedCount > 0,
+        unsyncedCount,
+        message: isSyncing
+            ? `Fetching player details from live API... (${syncProgress.synced || 0}/${syncProgress.total || unsyncedCount} players updated). Players will appear as they are synced.`
+            : unsyncedCount > 0
+                ? `Found ${totalRaw} players for ${country}. Fetching detailed stats from live API... Players will appear shortly.`
+                : globalSyncState.isRunning
+                    ? `Player database is being built from the live API (${Math.round((globalSyncState.offset / Math.max(globalSyncState.totalRows, 1)) * 100)}% complete). Please check back in a moment.`
+                    : 'No players found for this team yet.'
     };
 };
 
 /**
  * Fetch detailed info for a specific team's players (roles, stats, batting/bowling style).
  * This calls /players_info for each player that lacks details.
+ * Tracks per-team sync progress.
  */
-const syncTeamDetails = async (country, maxPlayers = 30) => {
+const syncTeamDetails = async (country, maxPlayers = 50) => {
+    const teamKey = country.toLowerCase();
+
+    if (teamSyncState[teamKey]?.isRunning) {
+        return { synced: 0, total: 0, message: 'Already syncing' };
+    }
+
     const regex = countryRegex(country);
     const players = await Player.find({
         country: regex,
@@ -217,18 +275,28 @@ const syncTeamDetails = async (country, maxPlayers = 30) => {
         ]
     }).limit(maxPlayers);
 
+    teamSyncState[teamKey] = { isRunning: true, synced: 0, total: players.length, startedAt: Date.now() };
+
     let synced = 0;
     for (const player of players) {
         try {
             await syncPlayerFromApi(player.apiId);
             synced++;
+            teamSyncState[teamKey].synced = synced;
+            // Small delay between calls to respect rate limits
+            await sleep(1200);
         } catch (err) {
             if (err.message && (err.message.includes('hits') || err.message.includes('limit') || err.message.includes('Block'))) {
-                console.log(`[TeamSync] Rate limit hit after syncing ${synced} player details. Stopping.`);
+                console.log(`[TeamSync] Rate limit hit after syncing ${synced} player details for ${country}. Will retry later.`);
                 break;
             }
+            // Skip individual player errors and continue
+            console.error(`[TeamSync] Error syncing ${player.name}:`, err.message);
         }
     }
+
+    teamSyncState[teamKey].isRunning = false;
+    console.log(`[TeamSync] Detail sync for ${country} done: ${synced}/${players.length} players enriched.`);
     return { synced, total: players.length };
 };
 

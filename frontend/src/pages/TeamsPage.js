@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 
@@ -18,26 +18,40 @@ const TeamsPage = () => {
     const [error, setError] = useState(null);
     const [message, setMessage] = useState(null);
     const [total, setTotal] = useState(0);
+    const [syncing, setSyncing] = useState(false);
+    const pollRef = useRef(null);
+
+    const fetchTeamPlayers = async (isPolling = false) => {
+        if (!isPolling) setLoading(true);
+        setError(null);
+        try {
+            const { data } = await axios.get(`${API}/team/${encodeURIComponent(selectedTeam)}?gender=${gender}`);
+            setPlayers(data.players || []);
+            setTotal(data.total || 0);
+            setMessage(data.message || null);
+            setSyncing(data.syncing || false);
+        } catch (err) {
+            if (!isPolling) setError('Failed to load team players');
+        } finally {
+            if (!isPolling) setLoading(false);
+        }
+    };
 
     useEffect(() => {
         if (!selectedTeam) return;
-        const fetchTeamPlayers = async () => {
-            setLoading(true);
-            setError(null);
-            setMessage(null);
-            try {
-                const { data } = await axios.get(`${API}/team/${encodeURIComponent(selectedTeam)}?gender=${gender}`);
-                setPlayers(data.players || []);
-                setTotal(data.total || 0);
-                if (data.message) setMessage(data.message);
-            } catch (err) {
-                setError('Failed to load team players');
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchTeamPlayers();
+        fetchTeamPlayers(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedTeam, gender]);
+
+    // Auto-poll every 5s while syncing
+    useEffect(() => {
+        if (pollRef.current) clearInterval(pollRef.current);
+        if (syncing && selectedTeam) {
+            pollRef.current = setInterval(() => fetchTeamPlayers(true), 5000);
+        }
+        return () => { if (pollRef.current) clearInterval(pollRef.current); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [syncing, selectedTeam, gender]);
 
     return (
         <div className="p-8">
@@ -89,7 +103,15 @@ const TeamsPage = () => {
                     {loading && <p className="text-slate-400">Loading players...</p>}
                     {error && <p className="text-red-400">{error}</p>}
                     {message && !loading && (
-                        <p className="text-amber-400 text-sm mb-4 bg-amber-900/20 border border-amber-800 rounded-lg px-4 py-2">{message}</p>
+                        <div className="flex items-center gap-3 text-amber-400 text-sm mb-4 bg-amber-900/20 border border-amber-800 rounded-lg px-4 py-2">
+                            {syncing && (
+                                <svg className="animate-spin h-4 w-4 flex-shrink-0" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                </svg>
+                            )}
+                            <span>{message}</span>
+                        </div>
                     )}
                     {!loading && !error && players.length === 0 && !message && (
                         <p className="text-slate-500">No players found for {selectedTeam}.</p>
