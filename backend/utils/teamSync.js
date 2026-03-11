@@ -1,6 +1,7 @@
 const Player = require('../models/Player');
 const cricketApi = require('./cricketApi');
 const { syncPlayerFromApi } = require('./playerSync');
+const { broadcast } = require('./sseManager');
 
 // Sync state tracking
 let globalSyncState = {
@@ -130,6 +131,10 @@ const crawlAllPlayers = async (options = {}) => {
                 // Log progress every 10 pages
                 if (pagesFetched % 10 === 0) {
                     console.log(`[TeamSync] Crawled ${pagesFetched} pages, offset ${offset}/${totalRows}, ${globalSyncState.playersSaved} players saved`);
+                    broadcast('sync:status', 'sync:progress', getSyncStatus());
+                    broadcast('dashboard:players', 'dashboard:crawlProgress', {
+                        offset, totalRows, playersSaved: globalSyncState.playersSaved
+                    });
                 }
 
                 if (offset >= totalRows) {
@@ -158,6 +163,7 @@ const crawlAllPlayers = async (options = {}) => {
         }
 
         console.log(`[TeamSync] Crawl batch done. ${pagesFetched} pages, ${globalSyncState.playersSaved} total players saved.`);
+        broadcast('sync:status', 'sync:complete', getSyncStatus());
     } finally {
         globalSyncState.isRunning = false;
     }
@@ -280,9 +286,21 @@ const syncTeamDetails = async (country, maxPlayers = 50) => {
     let synced = 0;
     for (const player of players) {
         try {
-            await syncPlayerFromApi(player.apiId);
+            const enrichedPlayer = await syncPlayerFromApi(player.apiId);
             synced++;
             teamSyncState[teamKey].synced = synced;
+
+            // Broadcast team update for each enriched player
+            broadcast(`team:${teamKey}:male`, 'team:playerSynced', {
+                player: enrichedPlayer, synced, total: players.length
+            });
+            broadcast(`team:${teamKey}:female`, 'team:playerSynced', {
+                player: enrichedPlayer, synced, total: players.length
+            });
+            broadcast('sync:status', 'sync:teamProgress', {
+                team: country, synced, total: players.length
+            });
+
             // Small delay between calls to respect rate limits
             await sleep(1200);
         } catch (err) {
@@ -297,6 +315,9 @@ const syncTeamDetails = async (country, maxPlayers = 50) => {
 
     teamSyncState[teamKey].isRunning = false;
     console.log(`[TeamSync] Detail sync for ${country} done: ${synced}/${players.length} players enriched.`);
+    broadcast(`team:${teamKey}:male`, 'team:syncComplete', { team: country, synced, total: players.length });
+    broadcast(`team:${teamKey}:female`, 'team:syncComplete', { team: country, synced, total: players.length });
+    broadcast('sync:status', 'sync:teamComplete', { team: country, synced, total: players.length });
     return { synced, total: players.length };
 };
 

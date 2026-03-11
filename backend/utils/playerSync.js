@@ -1,5 +1,6 @@
 const Player = require('../models/Player');
 const cricketApi = require('./cricketApi');
+const { broadcast } = require('./sseManager');
 
 const parseNumber = (val) => {
     if (val === undefined || val === null || val === '' || val === '-') return 0;
@@ -104,6 +105,9 @@ const syncPlayerFromApi = async (playerApiId) => {
             mapped,
             { upsert: true, new: true, setDefaultsOnInsert: true }
         );
+
+        // Broadcast individual player update
+        broadcast(`player:${playerApiId}`, 'player:update', player);
 
         return player;
     } catch (error) {

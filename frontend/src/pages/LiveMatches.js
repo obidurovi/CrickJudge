@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
+import useSSE from '../hooks/useSSE';
 
 const MatchCard = ({ match, onClick }) => {
     const isLive = match.matchStarted && !match.matchEnded;
@@ -229,10 +230,22 @@ const LiveMatches = () => {
         }
     }, []);
 
+    // SSE handlers for real-time match updates
+    const sseHandlers = useMemo(() => ({
+        'matches:update': (data) => {
+            setMatches(data.matches || []);
+            if (data.info) setApiInfo(data.info);
+            setLastUpdated(new Date(data.updatedAt || Date.now()));
+            setError(null);
+            setLoading(false);
+        }
+    }), []);
+
+    const { connected: sseConnected } = useSSE('/matches', sseHandlers);
+
+    // Initial REST fetch for first load, then SSE takes over
     useEffect(() => {
         fetchMatches();
-        const interval = setInterval(fetchMatches, 30000);
-        return () => clearInterval(interval);
     }, [fetchMatches]);
 
     const counts = {
@@ -335,8 +348,8 @@ const LiveMatches = () => {
                         <div className="flex items-center gap-4">
                             {lastUpdated && (
                                 <div className="hidden md:flex items-center gap-2 text-xs text-slate-500">
-                                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                                    Updated {lastUpdated.toLocaleTimeString()}
+                                    <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${sseConnected ? 'bg-emerald-500' : 'bg-yellow-500'}`}></span>
+                                    {sseConnected ? 'Live' : 'Connecting...'} · {lastUpdated.toLocaleTimeString()}
                                 </div>
                             )}
                             {apiInfo && (

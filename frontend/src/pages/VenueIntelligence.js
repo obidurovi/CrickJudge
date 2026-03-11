@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import useSSE from '../hooks/useSSE';
 
 const VenueIntelligence = () => {
     const [venues, setVenues] = useState([]);
@@ -24,6 +25,10 @@ const VenueIntelligence = () => {
         fetchVenues();
     }, []);
 
+    // SSE: connect to sync channel for live status indicator
+    const sseHandlers = useMemo(() => ({}), []);
+    const { connected: sseConnected } = useSSE('/sync', sseHandlers);
+
     if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Loading Venues...</div>;
     if (!selectedVenue) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">No Venues Found. Please run the database scraper.</div>;
 
@@ -39,7 +44,10 @@ const VenueIntelligence = () => {
                             </Link>
                             <div>
                                 <h1 className="text-2xl font-bold text-white tracking-tight">Venue Intelligence</h1>
-                                <p className="text-xs text-blue-400 font-medium tracking-wide">STADIUM ANALYTICS</p>
+                                <p className="text-xs text-blue-400 font-medium tracking-wide flex items-center gap-1.5">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${sseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-yellow-400'}`}></span>
+                                    STADIUM ANALYTICS
+                                </p>
                             </div>
                         </div>
                         <Link to="/" className="text-slate-400 hover:text-white transition-colors">Back to Dashboard</Link>

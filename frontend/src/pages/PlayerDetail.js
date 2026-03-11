@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
+import useSSE from '../hooks/useSSE';
 
 const API = 'http://localhost:5000/api/players';
 
@@ -56,6 +57,15 @@ const PlayerDetail = () => {
     fetchPlayer();
   }, [apiId]);
 
+  // SSE: listen for real-time updates when this player is re-synced
+  const sseHandlers = useMemo(() => ({
+    'player:update': (data) => {
+      if (data) setPlayer(data);
+    }
+  }), []);
+
+  const { connected: sseConnected } = useSSE(`/player/${apiId}`, sseHandlers);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center">
@@ -106,7 +116,10 @@ const PlayerDetail = () => {
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-3xl lg:text-4xl font-bold text-white">{player.name}</h1>
                 {player.source === 'api' && (
-                  <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-xs font-semibold">LIVE DATA</span>
+                  <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-xs font-semibold flex items-center gap-1">
+                    <span className={`w-1.5 h-1.5 rounded-full ${sseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`}></span>
+                    LIVE DATA
+                  </span>
                 )}
               </div>
               <div className="flex items-center gap-4 mt-2 flex-wrap">

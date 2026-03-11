@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
+import useSSE from '../hooks/useSSE';
 
 const API = 'http://localhost:5000/api/players';
 
@@ -19,10 +20,10 @@ const TeamsPage = () => {
     const [message, setMessage] = useState(null);
     const [total, setTotal] = useState(0);
     const [syncing, setSyncing] = useState(false);
-    const pollRef = useRef(null);
 
-    const fetchTeamPlayers = async (isPolling = false) => {
-        if (!isPolling) setLoading(true);
+    const fetchTeamPlayers = useCallback(async () => {
+        if (!selectedTeam) return;
+        setLoading(true);
         setError(null);
         try {
             const { data } = await axios.get(`${API}/team/${encodeURIComponent(selectedTeam)}?gender=${gender}`);
@@ -31,27 +32,41 @@ const TeamsPage = () => {
             setMessage(data.message || null);
             setSyncing(data.syncing || false);
         } catch (err) {
-            if (!isPolling) setError('Failed to load team players');
+            setError('Failed to load team players');
         } finally {
-            if (!isPolling) setLoading(false);
+            setLoading(false);
         }
-    };
+    }, [selectedTeam, gender]);
 
     useEffect(() => {
         if (!selectedTeam) return;
-        fetchTeamPlayers(false);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedTeam, gender]);
+        fetchTeamPlayers();
+    }, [fetchTeamPlayers, selectedTeam, gender]);
 
-    // Auto-poll every 5s while syncing
-    useEffect(() => {
-        if (pollRef.current) clearInterval(pollRef.current);
-        if (syncing && selectedTeam) {
-            pollRef.current = setInterval(() => fetchTeamPlayers(true), 5000);
+    // SSE path: /team/:country?gender=male|female
+    const ssePath = selectedTeam
+        ? `/team/${encodeURIComponent(selectedTeam.toLowerCase())}?gender=${gender}`
+        : null;
+
+    // SSE handlers — re-fetch the full filtered player list when players are synced or sync completes
+    const sseHandlers = useMemo(() => ({
+        'team:playerSynced': (data) => {
+            setSyncing(true);
+            setMessage(`Fetching latest player details... (${data.synced}/${data.total} players updated)`);
+            // Re-fetch to get properly filtered results
+            fetchTeamPlayers();
+        },
+        'team:syncComplete': () => {
+            setSyncing(false);
+            setMessage(null);
+            fetchTeamPlayers();
+        },
+        'sync:progress': () => {
+            // Global crawl progress — could update a status bar
         }
-        return () => { if (pollRef.current) clearInterval(pollRef.current); };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [syncing, selectedTeam, gender]);
+    }), [fetchTeamPlayers]);
+
+    const { connected: sseConnected } = useSSE(ssePath, sseHandlers, !!selectedTeam);
 
     return (
         <div className="p-8">
@@ -77,6 +92,12 @@ const TeamsPage = () => {
                 <div>
                     <div className="flex items-center gap-4 mb-4">
                         <h2 className="text-xl font-semibold text-white">{selectedTeam}</h2>
+                        {sseConnected && (
+                            <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                                Live
+                            </span>
+                        )}
                         <div className="flex rounded-lg overflow-hidden border border-slate-600">
                             <button
                                 onClick={() => setGender('male')}

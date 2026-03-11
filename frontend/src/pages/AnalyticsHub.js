@@ -1,23 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { PieChart, Pie, Cell, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Link } from 'react-router-dom';
+import useSSE from '../hooks/useSSE';
 
 const AnalyticsHub = () => {
     const [players, setPlayers] = useState([]);
 
-    useEffect(() => {
-        const fetchPlayers = async () => {
-            try {
-                const { data } = await axios.get('http://localhost:5000/api/players?offset=0');
-                const list = data.players || data;
-                setPlayers(Array.isArray(list) ? list.filter(p => p.stats) : []);
-            } catch (error) {
-                console.error("Error fetching players", error);
-            }
-        };
-        fetchPlayers();
+    const fetchPlayers = useCallback(async () => {
+        try {
+            const { data } = await axios.get('http://localhost:5000/api/players?offset=0');
+            const list = data.players || data;
+            setPlayers(Array.isArray(list) ? list.filter(p => p.stats) : []);
+        } catch (error) {
+            console.error("Error fetching players", error);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchPlayers();
+    }, [fetchPlayers]);
+
+    // SSE: refresh analytics data when sync completes
+    const sseHandlers = useMemo(() => ({
+        'sync:complete': () => {
+            fetchPlayers();
+        },
+        'dashboard:crawlProgress': () => {
+            fetchPlayers();
+        }
+    }), [fetchPlayers]);
+
+    const { connected: sseConnected } = useSSE('/dashboard', sseHandlers);
 
     // Process Data for Pie Chart (Roles)
     const roleData = [
@@ -49,7 +63,10 @@ const AnalyticsHub = () => {
                             </Link>
                             <div>
                                 <h1 className="text-2xl font-bold text-white tracking-tight">Analytics Hub</h1>
-                                <p className="text-xs text-emerald-300 font-medium tracking-wide">DATA VISUALIZATION</p>
+                                <p className="text-xs text-emerald-300 font-medium tracking-wide flex items-center gap-1.5">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${sseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-yellow-400'}`}></span>
+                                    DATA VISUALIZATION
+                                </p>
                             </div>
                         </div>
                         <Link to="/" className="text-slate-400 hover:text-white transition-colors">Back to Dashboard</Link>

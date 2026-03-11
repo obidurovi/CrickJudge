@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import PlayerCard from '../components/PlayerCard';
+import useSSE from '../hooks/useSSE';
 
 const API = 'http://localhost:5000/api/players';
 
@@ -79,6 +80,25 @@ const Dashboard = () => {
         return () => clearTimeout(timer);
     }, [search, handleSearch]);
 
+    // SSE: listen for crawl progress and refresh player list when new batches arrive
+    const [syncProgress, setSyncProgress] = useState(null);
+    const sseHandlers = useMemo(() => ({
+        'sync:progress': (data) => {
+            setSyncProgress(data);
+        },
+        'sync:complete': () => {
+            setSyncProgress(null);
+            fetchPlayers(0);
+        },
+        'dashboard:crawlProgress': (data) => {
+            setTotal(data.playersSaved || total);
+            // Refresh player list after a batch
+            fetchPlayers(0);
+        }
+    }), [fetchPlayers, total]);
+
+    const { connected: sseConnected } = useSSE('/dashboard', sseHandlers);
+
     const loadMore = () => {
         if (!loadingMore && hasMore) {
             fetchPlayers(offset + 25, true);
@@ -124,8 +144,8 @@ const Dashboard = () => {
                         <h2 className="text-3xl font-bold text-white mb-2">All Players</h2>
                         <div className="flex items-center gap-3 mb-6 flex-wrap">
                             <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-medium uppercase tracking-wider flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-                                Live from CricAPI
+                                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${sseConnected ? 'bg-emerald-400' : 'bg-yellow-400'}`}></span>
+                                {sseConnected ? 'Live from CricAPI' : 'Connecting...'}
                             </span>
                             <span className="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded text-xs font-medium uppercase tracking-wider">
                                 {searchResults !== null ? `${searchResults.length} Results` : `${total.toLocaleString()} Players`}
@@ -169,6 +189,18 @@ const Dashboard = () => {
                     {notice && !error && (
                         <div className="mb-8 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-center">
                             <p className="text-amber-400 text-sm font-medium">{notice}</p>
+                        </div>
+                    )}
+
+                    {syncProgress && !error && (
+                        <div className="mb-8 bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 flex items-center justify-center gap-3">
+                            <svg className="animate-spin h-4 w-4 text-blue-400" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                            </svg>
+                            <p className="text-blue-400 text-sm font-medium">
+                                Syncing player database... {syncProgress.progress || 0}% ({syncProgress.playersSaved || 0} players)
+                            </p>
                         </div>
                     )}
 
