@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import useSSE from '../hooks/useSSE';
@@ -20,6 +20,7 @@ const TeamsPage = () => {
     const [message, setMessage] = useState(null);
     const [total, setTotal] = useState(0);
     const [syncing, setSyncing] = useState(false);
+    const debounceRef = useRef(null);
 
     const fetchTeamPlayers = useCallback(async (showLoading = true) => {
         if (!selectedTeam) return;
@@ -48,13 +49,27 @@ const TeamsPage = () => {
         ? `/team/${encodeURIComponent(selectedTeam.toLowerCase())}?gender=${gender}`
         : null;
 
+    const debouncedFetch = useCallback(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            fetchTeamPlayers(false);
+        }, 500);
+    }, [fetchTeamPlayers]);
+
+    // Clean up debounce timer on unmount or team/gender change
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, [selectedTeam, gender]);
+
     // SSE handlers — re-fetch the full filtered player list when players are synced or sync completes
     const sseHandlers = useMemo(() => ({
         'team:playerSynced': (data) => {
             setSyncing(true);
             setMessage(`Fetching latest player details... (${data.synced}/${data.total} players updated)`);
-            // Silent re-fetch (no loading flash)
-            fetchTeamPlayers(false);
+            // Debounced re-fetch to avoid concurrent API calls from rapid SSE events
+            debouncedFetch();
         },
         'team:syncComplete': (data) => {
             setSyncing(false);
@@ -67,7 +82,7 @@ const TeamsPage = () => {
         'sync:progress': () => {
             // Global crawl progress — could update a status bar
         }
-    }), [fetchTeamPlayers]);
+    }), [fetchTeamPlayers, debouncedFetch]);
 
     const { connected: sseConnected } = useSSE(ssePath, sseHandlers, !!selectedTeam);
 
