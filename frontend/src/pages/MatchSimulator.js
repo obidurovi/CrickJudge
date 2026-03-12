@@ -33,8 +33,8 @@ const MatchSimulator = () => {
     const simulateBall = (ballNum) => {
         if (!batsman || !bowler) return;
 
-        const batFactor = batsman.stats.strikeRate / 100;
-        const bowlFactor = (12 - bowler.stats.economy) / 10;
+        const batFactor = Math.max((batsman.stats.strikeRate || 100) / 100, 0.1);
+        const bowlFactor = Math.min(Math.max((12 - (bowler.stats.economy || 6)) / 10, 0.1), 1.2);
         
         const random = Math.random();
         let outcome = 0;
