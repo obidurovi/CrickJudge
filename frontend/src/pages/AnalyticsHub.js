@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { PieChart, Pie, Cell, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Link } from 'react-router-dom';
@@ -22,14 +22,30 @@ const AnalyticsHub = () => {
     }, [fetchPlayers]);
 
     // SSE: refresh analytics data when sync completes
+    const debounceRef = useRef(null);
+
+    const debouncedFetchPlayers = useCallback(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            fetchPlayers();
+        }, 2000);
+    }, [fetchPlayers]);
+
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, []);
+
     const sseHandlers = useMemo(() => ({
         'sync:complete': () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
             fetchPlayers();
         },
         'dashboard:crawlProgress': () => {
-            fetchPlayers();
+            debouncedFetchPlayers();
         }
-    }), [fetchPlayers]);
+    }), [fetchPlayers, debouncedFetchPlayers]);
 
     const { connected: sseConnected } = useSSE('/dashboard', sseHandlers);
 
