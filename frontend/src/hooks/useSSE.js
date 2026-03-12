@@ -17,6 +17,7 @@ const useSSE = (path, handlers, enabled = true) => {
     const esRef = useRef(null);
     const handlersRef = useRef(handlers);
     const reconnectTimerRef = useRef(null);
+    const reconnectCountRef = useRef(0);
 
     // Keep handlers ref up to date without triggering reconnections
     useEffect(() => {
@@ -47,14 +48,16 @@ const useSSE = (path, handlers, enabled = true) => {
             esRef.current = null;
 
             // Reconnect with exponential backoff (max 30s)
-            const delay = Math.min(1000 * Math.pow(2, reconnectCount), 30000);
-            setReconnectCount(prev => prev + 1);
+            const delay = Math.min(1000 * Math.pow(2, reconnectCountRef.current), 30000);
+            reconnectCountRef.current += 1;
+            setReconnectCount(reconnectCountRef.current);
             reconnectTimerRef.current = setTimeout(connect, delay);
         };
 
         // Listen for the 'connected' event from the server
         es.addEventListener('connected', () => {
             setConnected(true);
+            reconnectCountRef.current = 0;
             setReconnectCount(0);
         });
 
@@ -73,9 +76,11 @@ const useSSE = (path, handlers, enabled = true) => {
                 });
             });
         }
-    }, [path, enabled, reconnectCount]);
+    }, [path, enabled]);
 
     useEffect(() => {
+        reconnectCountRef.current = 0;
+        setReconnectCount(0);
         connect();
 
         return () => {
