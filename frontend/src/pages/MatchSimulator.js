@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 
@@ -11,6 +11,7 @@ const MatchSimulator = () => {
     const [wickets, setWickets] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [gameOver, setGameOver] = useState(false);
+    const cancelledRef = useRef(false);
 
     useEffect(() => {
         const fetchPlayers = async () => {
@@ -23,6 +24,10 @@ const MatchSimulator = () => {
             }
         };
         fetchPlayers();
+    }, []);
+
+    useEffect(() => {
+        return () => { cancelledRef.current = true; };
     }, []);
 
     const simulateBall = (ballNum) => {
@@ -56,6 +61,7 @@ const MatchSimulator = () => {
     };
 
     const playOver = async () => {
+        cancelledRef.current = false;
         setIsPlaying(true);
         setMatchLog([]);
         setScore(0);
@@ -70,6 +76,7 @@ const MatchSimulator = () => {
             if (currentWickets >= 10) break;
 
             await new Promise(r => setTimeout(r, 800));
+            if (cancelledRef.current) return;
             
             const result = simulateBall(i);
             logs.push(result);
