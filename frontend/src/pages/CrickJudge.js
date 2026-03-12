@@ -173,14 +173,17 @@ const CrickJudge = () => {
     const getChartData = () => {
         if (!p1 || !p2) return [];
         
-        const norm = (val, max) => (val / max) * 100;
+        const norm = (val, max) => {
+            const n = Number(val) || 0;
+            return Math.min((n / max) * 100, 100);
+        };
 
         return [
-            { subject: 'Batting Avg', A: norm(p1.stats.average, 60), B: norm(p2.stats.average, 60), fullMark: 100 },
-            { subject: 'Strike Rate', A: norm(p1.stats.strikeRate, 160), B: norm(p2.stats.strikeRate, 160), fullMark: 100 },
-            { subject: 'Wickets', A: norm(p1.stats.wickets, 600), B: norm(p2.stats.wickets, 600), fullMark: 100 },
-            { subject: 'Economy', A: 100 - norm(p1.stats.economy, 12), B: 100 - norm(p2.stats.economy, 12), fullMark: 100 },
-            { subject: 'Experience', A: norm(p1.stats.matches, 500), B: norm(p2.stats.matches, 500), fullMark: 100 },
+            { subject: 'Batting Avg', A: norm(p1.stats?.average, 60), B: norm(p2.stats?.average, 60), fullMark: 100 },
+            { subject: 'Strike Rate', A: norm(p1.stats?.strikeRate, 160), B: norm(p2.stats?.strikeRate, 160), fullMark: 100 },
+            { subject: 'Wickets', A: norm(p1.stats?.wickets, 600), B: norm(p2.stats?.wickets, 600), fullMark: 100 },
+            { subject: 'Economy', A: 100 - norm(p1.stats?.economy, 12), B: 100 - norm(p2.stats?.economy, 12), fullMark: 100 },
+            { subject: 'Experience', A: norm(p1.stats?.matches, 500), B: norm(p2.stats?.matches, 500), fullMark: 100 },
         ];
     };
 
