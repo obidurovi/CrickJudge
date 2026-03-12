@@ -59,13 +59,15 @@ const AnalyticsHub = () => {
 
     const COLORS = ['#3b82f6', '#ef4444', '#a855f7', '#f59e0b'];
 
-    // Process Data for Scatter Plot (Avg vs Strike Rate)
-    const scatterData = players.map(p => ({
-        name: p.name,
-        x: p.stats.average,
-        y: p.stats.strikeRate,
-        role: p.role
-    }));
+    // Process Data for Scatter Plot (Avg vs Strike Rate) — exclude players with no meaningful stats
+    const scatterData = players
+        .filter(p => p.stats?.average > 0 || p.stats?.strikeRate > 0)
+        .map(p => ({
+            name: p.name,
+            x: p.stats.average,
+            y: p.stats.strikeRate,
+            role: p.role
+        }));
 
     return (
         <div className='min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200'>
