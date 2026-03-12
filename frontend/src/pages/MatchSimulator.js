@@ -125,11 +125,11 @@ const MatchSimulator = () => {
                         <label className="block text-blue-400 font-bold mb-2">Select Batsman</label>
                         <select 
                             className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white"
-                            onChange={(e) => setBatsman(players.find(p => p._id === e.target.value))}
+                            onChange={(e) => setBatsman(players.find(p => (p._id || p.apiId) === e.target.value))}
                         >
                             <option value="">Choose Player...</option>
                             {players.filter(p => p.role === 'Batsman' || p.role === 'Wicketkeeper' || p.role === 'Allrounder').map(p => (
-                                <option key={p._id} value={p._id}>{p.name}</option>
+                                <option key={p._id || p.apiId} value={p._id || p.apiId}>{p.name}</option>
                             ))}
                         </select>
                         {batsman && (
@@ -150,11 +150,11 @@ const MatchSimulator = () => {
                         <label className="block text-red-400 font-bold mb-2">Select Bowler</label>
                         <select 
                             className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white"
-                            onChange={(e) => setBowler(players.find(p => p._id === e.target.value))}
+                            onChange={(e) => setBowler(players.find(p => (p._id || p.apiId) === e.target.value))}
                         >
                             <option value="">Choose Player...</option>
                             {players.filter(p => p.role === 'Bowler' || p.role === 'Allrounder').map(p => (
-                                <option key={p._id} value={p._id}>{p.name}</option>
+                                <option key={p._id || p.apiId} value={p._id || p.apiId}>{p.name}</option>
                             ))}
                         </select>
                         {bowler && (
