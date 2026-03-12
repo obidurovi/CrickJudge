@@ -120,7 +120,7 @@ const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
                                     className={`cursor-pointer select-none relative px-3 py-2 mx-2 my-1 rounded-lg border border-transparent transition-all duration-150 group ${selectedId === (player._id || player.apiId) ? theme.itemSelected : theme.itemHover}`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-9 h-9 rounded-full bg-slate-800 flex-shrink-0 flex items-center justify-center text-xs font-bold text-slate-400 group-hover:text-white group-hover:bg-slate-700 transition-colors overflow-hidden border border-slate-700 ${selectedId === player._id ? `bg-gradient-to-br ${theme.avatar} text-white border-white/20` : ''}`}>
+                                        <div className={`w-9 h-9 rounded-full bg-slate-800 flex-shrink-0 flex items-center justify-center text-xs font-bold text-slate-400 group-hover:text-white group-hover:bg-slate-700 transition-colors overflow-hidden border border-slate-700 ${selectedId === (player._id || player.apiId) ? `bg-gradient-to-br ${theme.avatar} text-white border-white/20` : ''}`}>
                                             {player.image ? (
                                                 <img src={player.image} alt={player.name} className="w-full h-full object-cover" />
                                             ) : (
@@ -128,7 +128,7 @@ const PlayerDropdown = ({ label, color, players, selectedId, onSelect }) => {
                                             )}
                                         </div>
                                         <div className="flex flex-col overflow-hidden">
-                                            <span className={`text-sm font-medium truncate ${selectedId === player._id ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>
+                                            <span className={`text-sm font-medium truncate ${selectedId === (player._id || player.apiId) ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>
                                                 {player.name}
                                             </span>
                                             <span className="text-[10px] text-slate-500 uppercase tracking-wider truncate">
