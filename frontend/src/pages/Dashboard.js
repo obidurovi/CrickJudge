@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import PlayerCard from '../components/PlayerCard';
@@ -82,20 +82,35 @@ const Dashboard = () => {
 
     // SSE: listen for crawl progress and refresh player list when new batches arrive
     const [syncProgress, setSyncProgress] = useState(null);
+    const debounceRef = useRef(null);
+
+    const debouncedFetchPlayers = useCallback(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            fetchPlayers(0);
+        }, 2000);
+    }, [fetchPlayers]);
+
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, []);
+
     const sseHandlers = useMemo(() => ({
         'sync:progress': (data) => {
             setSyncProgress(data);
         },
         'sync:complete': () => {
             setSyncProgress(null);
+            if (debounceRef.current) clearTimeout(debounceRef.current);
             fetchPlayers(0);
         },
         'dashboard:crawlProgress': (data) => {
-            setTotal(data.playersSaved || total);
-            // Refresh player list after a batch
-            fetchPlayers(0);
+            setSyncProgress(prev => ({ ...prev, playersSaved: data.playersSaved, offset: data.offset, totalRows: data.totalRows }));
+            debouncedFetchPlayers();
         }
-    }), [fetchPlayers, total]);
+    }), [fetchPlayers, debouncedFetchPlayers]);
 
     const { connected: sseConnected } = useSSE('/dashboard', sseHandlers);
 
