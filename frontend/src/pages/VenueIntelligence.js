@@ -30,7 +30,7 @@ const VenueIntelligence = () => {
     const { connected: sseConnected } = useSSE('/sync', sseHandlers);
 
     if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Loading Venues...</div>;
-    if (!selectedVenue) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">No Venues Found. Please run the database scraper.</div>;
+    if (!selectedVenue) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">No Venues Found. Run backend seeding with: npm run seed:venues</div>;
 
     return (
         <div className='min-h-screen bg-slate-950 font-sans text-slate-200 flex flex-col'>
