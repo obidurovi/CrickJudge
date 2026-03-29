@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import useSSE from '../hooks/useSSE';
@@ -7,23 +7,53 @@ const VenueIntelligence = () => {
     const [venues, setVenues] = useState([]);
     const [selectedVenue, setSelectedVenue] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [seeding, setSeeding] = useState(false);
+    const [adminSeedKey, setAdminSeedKey] = useState('');
+    const [seedStatus, setSeedStatus] = useState(null);
+
+    const fetchVenues = useCallback(async () => {
+        try {
+            const { data } = await axios.get('http://localhost:5000/api/venues');
+            setVenues(data);
+            setSelectedVenue(prev => {
+                if (data.length === 0) return null;
+                if (!prev) return data[0];
+                return data.find(v => v.id === prev.id) || data[0];
+            });
+        } catch (error) {
+            console.error("Error fetching venues", error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        const fetchVenues = async () => {
-            try {
-                const { data } = await axios.get('http://localhost:5000/api/venues');
-                setVenues(data);
-                if (data.length > 0) {
-                    setSelectedVenue(data[0]);
-                }
-                setLoading(false);
-            } catch (error) {
-                console.error("Error fetching venues", error);
-                setLoading(false);
-            }
-        };
         fetchVenues();
-    }, []);
+    }, [fetchVenues]);
+
+    const handleSeedVenues = async () => {
+        try {
+            setSeeding(true);
+            setSeedStatus(null);
+
+            const headers = {};
+            if (adminSeedKey.trim()) {
+                headers['x-admin-seed-key'] = adminSeedKey.trim();
+            }
+
+            const { data } = await axios.post('http://localhost:5000/api/venues/admin/seed', {}, { headers });
+            await fetchVenues();
+            setSeedStatus({
+                type: 'success',
+                message: `Seed complete: ${data.totalSeedRows} rows (${data.inserted} inserted, ${data.updated} updated).`
+            });
+        } catch (error) {
+            const message = error?.response?.data?.message || 'Failed to seed venues';
+            setSeedStatus({ type: 'error', message });
+        } finally {
+            setSeeding(false);
+        }
+    };
 
     // SSE: connect to sync channel for live status indicator
     const sseHandlers = useMemo(() => ({}), []);
@@ -61,6 +91,30 @@ const VenueIntelligence = () => {
                 <div className="mb-8">
                     <h2 className="text-3xl font-bold text-white mb-2">Venue Command Center</h2>
                     <p className="text-slate-400">Strategic pitch reports and stadium analytics.</p>
+                    <div className="mt-4 bg-slate-900/70 border border-white/10 rounded-2xl p-4">
+                        <p className="text-xs uppercase tracking-wider font-bold text-slate-300 mb-3">Admin Tools</p>
+                        <div className="flex flex-col md:flex-row gap-3">
+                            <input
+                                type="password"
+                                value={adminSeedKey}
+                                onChange={(e) => setAdminSeedKey(e.target.value)}
+                                placeholder="Optional admin seed key"
+                                className="flex-1 bg-slate-800 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60"
+                            />
+                            <button
+                                onClick={handleSeedVenues}
+                                disabled={seeding}
+                                className="px-5 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400 text-white transition-colors"
+                            >
+                                {seeding ? 'Seeding...' : 'Seed Venue Data'}
+                            </button>
+                        </div>
+                        {seedStatus && (
+                            <p className={`mt-3 text-sm ${seedStatus.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {seedStatus.message}
+                            </p>
+                        )}
+                    </div>
                 </div>
 
                 {/* Venue Selector */}
