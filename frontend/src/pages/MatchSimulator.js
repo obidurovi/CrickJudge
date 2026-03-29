@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Line } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Line, ReferenceArea } from 'recharts';
 
 const TOTAL_OVERS = 20;
 const TOTAL_BALLS = TOTAL_OVERS * 6;
@@ -533,6 +533,7 @@ const MatchSimulator = () => {
     const overRunTrend = overSummary.reduce((acc, entry) => {
         const previousCumulative = acc.length ? acc[acc.length - 1].cumulative : 0;
         acc.push({
+            overNumber: entry.over,
             over: `O${entry.over}`,
             runs: entry.runs,
             wickets: entry.wickets,
@@ -720,6 +721,13 @@ const MatchSimulator = () => {
                                 <div className="h-44 mb-5 border border-white/10 rounded-xl bg-slate-900/50 p-2">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart data={overRunTrend} margin={{ top: 8, right: 8, left: -18, bottom: 4 }}>
+                                            {overRunTrend.length > 0 && (
+                                                <>
+                                                    <ReferenceArea x1="O1" x2="O6" fill="#22c55e" fillOpacity={0.08} />
+                                                    <ReferenceArea x1="O7" x2="O15" fill="#3b82f6" fillOpacity={0.07} />
+                                                    <ReferenceArea x1="O16" x2="O20" fill="#f97316" fillOpacity={0.08} />
+                                                </>
+                                            )}
                                             <CartesianGrid strokeDasharray="3 3" stroke="#334155" strokeOpacity={0.4} />
                                             <XAxis dataKey="over" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} />
                                             <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} />
@@ -743,6 +751,12 @@ const MatchSimulator = () => {
                                             <Line type="monotone" dataKey="cumulative" stroke="#38bdf8" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                                         </BarChart>
                                     </ResponsiveContainer>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2 mb-5 text-[11px]">
+                                    <span className="px-2 py-1 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-400/20">Powerplay (1-6)</span>
+                                    <span className="px-2 py-1 rounded-md bg-blue-500/15 text-blue-300 border border-blue-400/20">Middle (7-15)</span>
+                                    <span className="px-2 py-1 rounded-md bg-orange-500/15 text-orange-300 border border-orange-400/20">Death (16-20)</span>
                                 </div>
 
                                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
