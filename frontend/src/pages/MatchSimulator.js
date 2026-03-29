@@ -116,6 +116,8 @@ const MatchSimulator = () => {
     const [nextBatter, setNextBatter] = useState(null);
     const [currentOverBowler, setCurrentOverBowler] = useState(null);
     const [bowlingSpells, setBowlingSpells] = useState([]);
+    const [battingStats, setBattingStats] = useState([]);
+    const [fallOfWickets, setFallOfWickets] = useState([]);
 
     const cancelledRef = useRef(false);
 
@@ -232,6 +234,8 @@ const MatchSimulator = () => {
         setCurrentOverBowler(null);
         setCurrentPair({ striker: null, nonStriker: null });
         setNextBatter(null);
+        setBattingStats([]);
+        setFallOfWickets([]);
         setGameOver(false);
     };
 
@@ -264,9 +268,65 @@ const MatchSimulator = () => {
         const log = [];
         const overs = [];
         const shots = [];
+        const fowLog = [];
+
+        const lineupOrderIds = lineup.map((p) => getPlayerId(p));
+        const battingMap = {};
+        lineup.forEach((p, idx) => {
+            battingMap[getPlayerId(p)] = {
+                id: getPlayerId(p),
+                order: idx + 1,
+                name: p.name,
+                runs: 0,
+                balls: 0,
+                fours: 0,
+                sixes: 0,
+                isOut: false,
+                entered: false,
+                status: 'Yet to bat',
+                dismissal: '-'
+            };
+        });
+
+        const syncBattingStatuses = () => {
+            lineupOrderIds.forEach((id) => {
+                const row = battingMap[id];
+                if (!row) return;
+                if (row.isOut) {
+                    row.status = 'Out';
+                    return;
+                }
+                if (!row.entered) {
+                    row.status = 'Yet to bat';
+                    return;
+                }
+                row.status = 'Not out';
+            });
+
+            const strikerId = getPlayerId(striker);
+            const nonStrikerId = getPlayerId(nonStriker);
+            if (strikerId && battingMap[strikerId] && !battingMap[strikerId].isOut) battingMap[strikerId].status = 'Batting';
+            if (nonStrikerId && battingMap[nonStrikerId] && !battingMap[nonStrikerId].isOut) battingMap[nonStrikerId].status = 'Batting';
+        };
+
+        const snapshotBatting = (inningsClosed = false) => lineupOrderIds.map((id) => {
+            const row = battingMap[id];
+            const strikeRate = row.balls ? (row.runs * 100) / row.balls : 0;
+            const adjustedStatus = inningsClosed && row.status === 'Batting' ? 'Not out' : row.status;
+            return {
+                ...row,
+                status: adjustedStatus,
+                strikeRate
+            };
+        });
+
+        battingMap[getPlayerId(striker)].entered = true;
+        battingMap[getPlayerId(nonStriker)].entered = true;
+        syncBattingStatuses();
 
         setCurrentPair({ striker, nonStriker });
         setNextBatter(lineup[nextBatterIndex] || null);
+        setBattingStats(snapshotBatting());
 
         for (let ballNumber = 1; ballNumber <= TOTAL_BALLS && currentWickets < 10; ballNumber++) {
             const overNumber = Math.floor((ballNumber - 1) / 6) + 1;
@@ -307,19 +367,47 @@ const MatchSimulator = () => {
             const bowlerId = getPlayerId(overBowler);
             spellById[bowlerId] = spellById[bowlerId] || 0;
 
+            const strikerAtBallStart = striker;
+            const strikerId = getPlayerId(strikerAtBallStart);
+            if (strikerId && battingMap[strikerId]) {
+                battingMap[strikerId].entered = true;
+                battingMap[strikerId].balls += 1;
+            }
+
             if (event.isWicket) {
                 currentWickets += 1;
                 overs[overIndex].wickets += 1;
                 if (event.isPowerplay) ppWickets += 1;
 
+                if (strikerId && battingMap[strikerId]) {
+                    battingMap[strikerId].isOut = true;
+                    battingMap[strikerId].dismissal = `b ${overBowler?.name || 'Unknown'}`;
+                }
+
+                fowLog.push({
+                    wicket: currentWickets,
+                    score: currentRuns,
+                    over: getOversText(currentBalls),
+                    batter: strikerAtBallStart?.name || 'Unknown',
+                    bowler: overBowler?.name || 'Unknown'
+                });
+
                 if (nextBatterIndex < lineup.length) {
                     striker = lineup[nextBatterIndex];
+                    const newStrikerId = getPlayerId(striker);
+                    if (newStrikerId && battingMap[newStrikerId]) battingMap[newStrikerId].entered = true;
                     nextBatterIndex += 1;
                 }
             } else {
                 currentRuns += event.runs;
                 overs[overIndex].runs += event.runs;
                 if (event.isPowerplay) ppRuns += event.runs;
+
+                if (strikerId && battingMap[strikerId]) {
+                    battingMap[strikerId].runs += event.runs;
+                    if (event.runs === 4) battingMap[strikerId].fours += 1;
+                    if (event.runs === 6) battingMap[strikerId].sixes += 1;
+                }
 
                 if (event.runs % 2 === 1) {
                     [striker, nonStriker] = [nonStriker, striker];
@@ -336,8 +424,12 @@ const MatchSimulator = () => {
 
             if (currentBalls % 6 === 0) {
                 spellById[bowlerId] += 1;
-                [striker, nonStriker] = [nonStriker, striker];
+                if (striker && nonStriker) {
+                    [striker, nonStriker] = [nonStriker, striker];
+                }
             }
+
+            syncBattingStatuses();
 
             const inningsOverText = getOversText(currentBalls);
             const currentRR = currentBalls ? (currentRuns * 6) / currentBalls : 0;
@@ -362,6 +454,8 @@ const MatchSimulator = () => {
             setWagonShots([...shots]);
             setCurrentPair({ striker, nonStriker });
             setNextBatter(lineup[nextBatterIndex] || null);
+            setBattingStats(snapshotBatting());
+            setFallOfWickets([...fowLog]);
             setBowlingSpells(
                 Object.keys(spellById).map((id) => {
                     const p = attack.find((x) => getPlayerId(x) === id);
@@ -374,6 +468,9 @@ const MatchSimulator = () => {
             );
         }
 
+        syncBattingStatuses();
+        setBattingStats(snapshotBatting(true));
+        setFallOfWickets([...fowLog]);
         setIsPlaying(false);
         setGameOver(true);
     };
@@ -556,6 +653,25 @@ const MatchSimulator = () => {
                                     ))}
                                 </div>
                             </div>
+
+                            <div className="bg-black/40 backdrop-blur-xl rounded-3xl border border-white/10 p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <p className="text-sm uppercase tracking-wider text-slate-300">Fall Of Wickets</p>
+                                    <p className="text-xs text-slate-500">Wicket timeline</p>
+                                </div>
+                                {fallOfWickets.length === 0 ? (
+                                    <p className="text-sm text-slate-500">No wickets have fallen yet.</p>
+                                ) : (
+                                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                                        {fallOfWickets.map((entry) => (
+                                            <div key={`${entry.wicket}-${entry.over}-${entry.batter}`} className="rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2">
+                                                <p className="text-sm font-semibold text-white">{entry.score}-{entry.wicket} ({entry.over})</p>
+                                                <p className="text-xs text-slate-400">{entry.batter} b {entry.bowler}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="space-y-6">
@@ -611,8 +727,8 @@ const MatchSimulator = () => {
 
                             <div className="bg-black/40 backdrop-blur-xl rounded-3xl border border-white/10 p-6">
                                 <div className="flex items-center justify-between mb-4">
-                                    <p className="text-sm uppercase tracking-wider text-slate-300">Auto Batting Order</p>
-                                    <p className="text-xs text-slate-500">Top 11 by strike rate</p>
+                                    <p className="text-sm uppercase tracking-wider text-slate-300">Batting Card</p>
+                                    <p className="text-xs text-slate-500">Live innings stats</p>
                                 </div>
                                 <div className="mb-4 border border-white/10 rounded-xl p-3 bg-slate-900/60">
                                     <p className="text-xs uppercase text-slate-500 mb-2">Bowling Attack Rotation Pool</p>
@@ -622,13 +738,35 @@ const MatchSimulator = () => {
                                             : 'No bowling unit selected yet'}
                                     </p>
                                 </div>
-                                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                                    {battingLineup.map((p, idx) => (
-                                        <div key={getPlayerId(p)} className="flex items-center justify-between text-sm bg-slate-900/60 border border-white/10 rounded-lg px-3 py-2">
-                                            <span className="text-slate-300">{idx + 1}. {p.name}</span>
-                                            <span className="text-slate-500">SR {Number(p?.stats?.strikeRate || 0).toFixed(0)}</span>
+                                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                                    {battingStats.map((row) => (
+                                        <div key={row.id} className="text-sm bg-slate-900/60 border border-white/10 rounded-lg px-3 py-2">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-slate-200">{row.order}. {row.name}</span>
+                                                <span className={`text-xs font-semibold ${row.status === 'Out' ? 'text-rose-400' : row.status === 'Batting' ? 'text-emerald-400' : 'text-slate-400'}`}>{row.status}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs text-slate-400">
+                                                <span>{row.runs} ({row.balls})</span>
+                                                <span>4s {row.fours} | 6s {row.sixes}</span>
+                                                <span>SR {row.strikeRate.toFixed(1)}</span>
+                                            </div>
+                                            {row.isOut && <p className="text-[11px] text-slate-500 mt-1">{row.dismissal}</p>}
                                         </div>
                                     ))}
+                                    {battingStats.length === 0 && (
+                                        <div className="text-sm bg-slate-900/60 border border-white/10 rounded-lg px-3 py-2 text-slate-500">
+                                            Batting card will appear after simulation starts.
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="mt-4 border border-white/10 rounded-xl p-3 bg-slate-900/60">
+                                    <p className="text-xs uppercase text-slate-500 mb-2">Auto Batting Order</p>
+                                    <p className="text-xs text-slate-300">
+                                        {battingLineup.length
+                                            ? battingLineup.map((p, idx) => `${idx + 1}. ${p.name}`).join(' | ')
+                                            : 'No batting lineup generated yet'}
+                                    </p>
                                 </div>
                             </div>
                         </div>
