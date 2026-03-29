@@ -9,6 +9,7 @@ const VenueIntelligence = () => {
     const [loading, setLoading] = useState(true);
     const [seeding, setSeeding] = useState(false);
     const [adminSeedKey, setAdminSeedKey] = useState('');
+    const [replaceExisting, setReplaceExisting] = useState(false);
     const [seedStatus, setSeedStatus] = useState(null);
 
     const fetchVenues = useCallback(async () => {
@@ -41,11 +42,17 @@ const VenueIntelligence = () => {
                 headers['x-admin-seed-key'] = adminSeedKey.trim();
             }
 
-            const { data } = await axios.post('http://localhost:5000/api/venues/admin/seed', {}, { headers });
+            const { data } = await axios.post(
+                'http://localhost:5000/api/venues/admin/seed',
+                { replaceExisting },
+                { headers }
+            );
             await fetchVenues();
             setSeedStatus({
                 type: 'success',
-                message: `Seed complete: ${data.totalSeedRows} rows (${data.inserted} inserted, ${data.updated} updated).`
+                message: data.replaced
+                    ? `Seed complete (replace mode): removed ${data.removed}, inserted ${data.inserted}.`
+                    : `Seed complete: ${data.totalSeedRows} rows (${data.inserted} inserted, ${data.updated} updated).`
             });
         } catch (error) {
             const message = error?.response?.data?.message || 'Failed to seed venues';
@@ -109,6 +116,15 @@ const VenueIntelligence = () => {
                                 {seeding ? 'Seeding...' : 'Seed Venue Data'}
                             </button>
                         </div>
+                        <label className="mt-3 inline-flex items-center gap-2 text-sm text-slate-300 select-none">
+                            <input
+                                type="checkbox"
+                                checked={replaceExisting}
+                                onChange={(e) => setReplaceExisting(e.target.checked)}
+                                className="h-4 w-4 rounded border-white/20 bg-slate-800 text-blue-500 focus:ring-blue-500/60"
+                            />
+                            Replace existing venues (clears old records first)
+                        </label>
                         {seedStatus && (
                             <p className={`mt-3 text-sm ${seedStatus.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {seedStatus.message}

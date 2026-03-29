@@ -29,7 +29,10 @@ const seedVenues = async (req, res) => {
             }
         }
 
-        const result = await seedVenuesInDb();
+        const rawReplace = req.body?.replaceExisting ?? req.query?.replaceExisting;
+        const replaceExisting = rawReplace === true || rawReplace === 'true' || rawReplace === '1';
+
+        const result = await seedVenuesInDb({ replaceExisting });
         return res.json({
             message: 'Venue seeding completed',
             ...result

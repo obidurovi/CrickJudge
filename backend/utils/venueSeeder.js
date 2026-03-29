@@ -2,7 +2,13 @@ const Venue = require('../models/Venue');
 const cache = require('../config/cache');
 const venueSeedData = require('./venueSeedData');
 
-const seedVenuesInDb = async () => {
+const seedVenuesInDb = async ({ replaceExisting = false } = {}) => {
+    let removed = 0;
+    if (replaceExisting) {
+        const deleteResult = await Venue.deleteMany({});
+        removed = deleteResult.deletedCount || 0;
+    }
+
     const operations = venueSeedData.map((venue) => ({
         updateOne: {
             filter: { id: venue.id },
@@ -15,6 +21,8 @@ const seedVenuesInDb = async () => {
     await cache.del('cric:venues:all');
 
     return {
+        replaced: replaceExisting,
+        removed,
         inserted: result.upsertedCount,
         updated: result.modifiedCount,
         matched: result.matchedCount,
