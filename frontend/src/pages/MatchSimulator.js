@@ -738,26 +738,43 @@ const MatchSimulator = () => {
                                             : 'No bowling unit selected yet'}
                                     </p>
                                 </div>
-                                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                                    {battingStats.map((row) => (
-                                        <div key={row.id} className="text-sm bg-slate-900/60 border border-white/10 rounded-lg px-3 py-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-slate-200">{row.order}. {row.name}</span>
-                                                <span className={`text-xs font-semibold ${row.status === 'Out' ? 'text-rose-400' : row.status === 'Batting' ? 'text-emerald-400' : 'text-slate-400'}`}>{row.status}</span>
+                                <div className="border border-white/10 rounded-xl overflow-hidden">
+                                    <div className="grid grid-cols-12 bg-slate-800/80 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-300">
+                                        <span className="col-span-5">Batter</span>
+                                        <span className="col-span-1 text-center">R</span>
+                                        <span className="col-span-1 text-center">B</span>
+                                        <span className="col-span-1 text-center">4s</span>
+                                        <span className="col-span-1 text-center">6s</span>
+                                        <span className="col-span-2 text-center">SR</span>
+                                        <span className="col-span-1 text-right">St</span>
+                                    </div>
+
+                                    <div className="max-h-72 overflow-y-auto bg-slate-900/60">
+                                        {battingStats.map((row) => (
+                                            <div key={row.id} className="border-t border-white/5 px-3 py-2">
+                                                <div className="grid grid-cols-12 items-center text-sm">
+                                                    <div className="col-span-5 pr-2">
+                                                        <p className="text-slate-200 truncate">{row.order}. {row.name}</p>
+                                                        {row.isOut && <p className="text-[11px] text-slate-500 truncate">{row.dismissal}</p>}
+                                                    </div>
+                                                    <span className="col-span-1 text-center text-slate-200 font-semibold">{row.runs}</span>
+                                                    <span className="col-span-1 text-center text-slate-300">{row.balls}</span>
+                                                    <span className="col-span-1 text-center text-slate-300">{row.fours}</span>
+                                                    <span className="col-span-1 text-center text-slate-300">{row.sixes}</span>
+                                                    <span className="col-span-2 text-center text-slate-300">{row.strikeRate.toFixed(1)}</span>
+                                                    <span className={`col-span-1 text-right text-xs font-semibold ${row.status === 'Out' ? 'text-rose-400' : row.status === 'Batting' ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                                        {row.status === 'Batting' ? '*' : row.status === 'Out' ? 'O' : row.status === 'Not out' ? 'NO' : '-'}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center justify-between text-xs text-slate-400">
-                                                <span>{row.runs} ({row.balls})</span>
-                                                <span>4s {row.fours} | 6s {row.sixes}</span>
-                                                <span>SR {row.strikeRate.toFixed(1)}</span>
+                                        ))}
+
+                                        {battingStats.length === 0 && (
+                                            <div className="px-3 py-3 text-sm text-slate-500">
+                                                Batting card will appear after simulation starts.
                                             </div>
-                                            {row.isOut && <p className="text-[11px] text-slate-500 mt-1">{row.dismissal}</p>}
-                                        </div>
-                                    ))}
-                                    {battingStats.length === 0 && (
-                                        <div className="text-sm bg-slate-900/60 border border-white/10 rounded-lg px-3 py-2 text-slate-500">
-                                            Batting card will appear after simulation starts.
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="mt-4 border border-white/10 rounded-xl p-3 bg-slate-900/60">
