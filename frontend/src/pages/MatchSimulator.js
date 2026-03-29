@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Line, ReferenceArea } from 'recharts';
 import {
     useLazyGetLastSimulationQuery,
     useSaveLastSimulationMutation,
     useClearLastSimulationMutation
 } from '../store/simulationStorageApi';
+import { setRuntimeSnapshot, clearRuntimeSnapshot } from '../store/simulationRuntimeSlice';
 
 const TOTAL_OVERS = 20;
 const TOTAL_BALLS = TOTAL_OVERS * 6;
@@ -113,6 +115,9 @@ const pickBowlerForOver = ({ overNumber, attack, spellById, previousBowlerId }) 
 };
 
 const MatchSimulator = () => {
+    const dispatch = useDispatch();
+    const runtimeSnapshot = useSelector((state) => state.simulationRuntime);
+
     const [players, setPlayers] = useState([]);
     const [loadingPlayers, setLoadingPlayers] = useState(true);
     const [anchorBatter, setAnchorBatter] = useState(null);
@@ -144,6 +149,7 @@ const MatchSimulator = () => {
     const [bestPartnership, setBestPartnership] = useState({ runs: 0, balls: 0, batters: '-', wicketAt: '-' });
     const [copyStatus, setCopyStatus] = useState('');
     const [restoreStatus, setRestoreStatus] = useState('');
+    const [runtimeHydrated, setRuntimeHydrated] = useState(false);
 
     const [saveLastSimulation, { isLoading: isSavingSimulation }] = useSaveLastSimulationMutation();
     const [clearLastSimulation, { isLoading: isClearingSimulation }] = useClearLastSimulationMutation();
@@ -272,6 +278,7 @@ const MatchSimulator = () => {
         setCopyStatus('');
         setRestoreStatus('');
         setGameOver(false);
+        dispatch(clearRuntimeSnapshot());
     };
 
     const playInnings = async () => {
@@ -690,6 +697,54 @@ const MatchSimulator = () => {
         return true;
     };
 
+    const applyRuntimeSnapshot = useCallback((snapshot) => {
+        if (!snapshot?.hasData) return false;
+
+        setIsPlaying(snapshot.isPlaying || false);
+        setGameOver(snapshot.gameOver || false);
+        setRuns(snapshot.runs || 0);
+        setWickets(snapshot.wickets || 0);
+        setBallsFaced(snapshot.ballsFaced || 0);
+        setPowerplayRuns(snapshot.powerplayRuns || 0);
+        setPowerplayWickets(snapshot.powerplayWickets || 0);
+
+        setMatchLog(Array.isArray(snapshot.matchLog) ? snapshot.matchLog : []);
+        setOverSummary(Array.isArray(snapshot.overSummary) ? snapshot.overSummary : []);
+        setWagonShots(Array.isArray(snapshot.wagonShots) ? snapshot.wagonShots : []);
+        setBattingLineup(Array.isArray(snapshot.battingLineup) ? snapshot.battingLineup : []);
+        setBowlingAttack(Array.isArray(snapshot.bowlingAttack) ? snapshot.bowlingAttack : []);
+
+        setCurrentPair(snapshot.currentPair || { striker: null, nonStriker: null });
+        setNextBatter(snapshot.nextBatter || null);
+        setCurrentOverBowler(snapshot.currentOverBowler || null);
+        setBowlingSpells(Array.isArray(snapshot.bowlingSpells) ? snapshot.bowlingSpells : []);
+        setBattingStats(Array.isArray(snapshot.battingStats) ? snapshot.battingStats : []);
+        setFallOfWickets(Array.isArray(snapshot.fallOfWickets) ? snapshot.fallOfWickets : []);
+        setCurrentPartnership(snapshot.currentPartnership || { runs: 0, balls: 0, batters: '-' });
+        setBestPartnership(snapshot.bestPartnership || { runs: 0, balls: 0, batters: '-', wicketAt: '-' });
+
+        if (players.length) {
+            const restoredAnchor = players.find((p) => p.name === snapshot.anchorBatterName);
+            const restoredLead = players.find((p) => p.name === snapshot.leadBowlerName);
+            if (restoredAnchor) setAnchorBatter(restoredAnchor);
+            if (restoredLead) setLeadBowler(restoredLead);
+        }
+
+        return true;
+    }, [players]);
+
+    useEffect(() => {
+        if (runtimeHydrated) return;
+        if (loadingPlayers) return;
+
+        if (runtimeSnapshot?.hasData) {
+            const restored = applyRuntimeSnapshot(runtimeSnapshot);
+            if (restored) setRestoreStatus('Runtime restored from Redux');
+        }
+
+        setRuntimeHydrated(true);
+    }, [runtimeHydrated, loadingPlayers, runtimeSnapshot, applyRuntimeSnapshot]);
+
     useEffect(() => {
         if (!gameOver || !matchLog.length) return;
 
@@ -701,6 +756,66 @@ const MatchSimulator = () => {
             setRestoreStatus('Auto-save failed');
         });
     }, [gameOver, matchLog.length, runs, wickets, ballsFaced, saveLastSimulation, createExportPayload]);
+
+    useEffect(() => {
+        if (!runtimeHydrated) return;
+
+        const hasActiveState = matchLog.length > 0 || gameOver || isPlaying;
+        if (!hasActiveState) {
+            dispatch(clearRuntimeSnapshot());
+            return;
+        }
+
+        dispatch(setRuntimeSnapshot({
+            anchorBatterName: anchorBatter?.name || null,
+            leadBowlerName: leadBowler?.name || null,
+            isPlaying,
+            gameOver,
+            runs,
+            wickets,
+            ballsFaced,
+            powerplayRuns,
+            powerplayWickets,
+            matchLog,
+            overSummary,
+            wagonShots,
+            battingLineup,
+            bowlingAttack,
+            currentPair,
+            nextBatter,
+            currentOverBowler,
+            bowlingSpells,
+            battingStats,
+            fallOfWickets,
+            currentPartnership,
+            bestPartnership
+        }));
+    }, [
+        runtimeHydrated,
+        dispatch,
+        anchorBatter,
+        leadBowler,
+        isPlaying,
+        gameOver,
+        runs,
+        wickets,
+        ballsFaced,
+        powerplayRuns,
+        powerplayWickets,
+        matchLog,
+        overSummary,
+        wagonShots,
+        battingLineup,
+        bowlingAttack,
+        currentPair,
+        nextBatter,
+        currentOverBowler,
+        bowlingSpells,
+        battingStats,
+        fallOfWickets,
+        currentPartnership,
+        bestPartnership
+    ]);
 
     const exportAsJson = () => {
         const payload = createExportPayload();
