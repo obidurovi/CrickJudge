@@ -1,7 +1,12 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Line, ReferenceArea } from 'recharts';
+import {
+    useLazyGetLastSimulationQuery,
+    useSaveLastSimulationMutation,
+    useClearLastSimulationMutation
+} from '../store/simulationStorageApi';
 
 const TOTAL_OVERS = 20;
 const TOTAL_BALLS = TOTAL_OVERS * 6;
@@ -35,6 +40,14 @@ const getBallLabel = (ballNumber) => {
 };
 
 const getOversText = (balls) => `${Math.floor(balls / 6)}.${balls % 6}`;
+
+const parseOversTextToBalls = (oversText) => {
+    const raw = typeof oversText === 'string' ? oversText : '0.0';
+    const [overPart, ballPart] = raw.split('.');
+    const overs = Number(overPart) || 0;
+    const balls = Number(ballPart) || 0;
+    return overs * 6 + Math.min(Math.max(balls, 0), 5);
+};
 
 const toCsvValue = (value) => {
     const raw = value === null || value === undefined ? '' : String(value);
@@ -130,6 +143,12 @@ const MatchSimulator = () => {
     const [currentPartnership, setCurrentPartnership] = useState({ runs: 0, balls: 0, batters: '-' });
     const [bestPartnership, setBestPartnership] = useState({ runs: 0, balls: 0, batters: '-', wicketAt: '-' });
     const [copyStatus, setCopyStatus] = useState('');
+    const [restoreStatus, setRestoreStatus] = useState('');
+
+    const [saveLastSimulation, { isLoading: isSavingSimulation }] = useSaveLastSimulationMutation();
+    const [clearLastSimulation, { isLoading: isClearingSimulation }] = useClearLastSimulationMutation();
+    const [fetchLastSimulation, { isFetching: isRestoringSimulation }] = useLazyGetLastSimulationQuery();
+    const lastAutoSavedKeyRef = useRef('');
 
     const cancelledRef = useRef(false);
 
@@ -251,6 +270,7 @@ const MatchSimulator = () => {
         setCurrentPartnership({ runs: 0, balls: 0, batters: '-' });
         setBestPartnership({ runs: 0, balls: 0, batters: '-', wicketAt: '-' });
         setCopyStatus('');
+        setRestoreStatus('');
         setGameOver(false);
     };
 
@@ -552,7 +572,7 @@ const MatchSimulator = () => {
         return acc;
     }, []);
 
-    const createExportPayload = () => ({
+    const createExportPayload = useCallback(() => ({
         meta: {
             generatedAt: new Date().toISOString(),
             format: 'T20 innings simulation'
@@ -583,7 +603,26 @@ const MatchSimulator = () => {
         overSummary,
         fallOfWickets,
         deliveries: matchLog
-    });
+    }), [
+        anchorBatter,
+        leadBowler,
+        battingLineup,
+        bowlingAttack,
+        runs,
+        wickets,
+        overText,
+        currentRR,
+        projectedScore,
+        powerplayActive,
+        powerplayRuns,
+        powerplayWickets,
+        currentPartnership,
+        bestPartnership,
+        battingStats,
+        overSummary,
+        fallOfWickets,
+        matchLog
+    ]);
 
     const triggerDownload = (content, fileName, mimeType) => {
         const blob = new Blob([content], { type: mimeType });
@@ -596,6 +635,72 @@ const MatchSimulator = () => {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
     };
+
+    const applySimulationPayload = (payload) => {
+        if (!payload || !payload.scoreboard) return false;
+
+        setIsPlaying(false);
+        setGameOver(true);
+
+        setRuns(payload.scoreboard.runs || 0);
+        setWickets(payload.scoreboard.wickets || 0);
+        setBallsFaced(parseOversTextToBalls(payload.scoreboard.overs));
+        setPowerplayRuns(payload.scoreboard?.powerplay?.runs || 0);
+        setPowerplayWickets(payload.scoreboard?.powerplay?.wickets || 0);
+
+        setMatchLog(Array.isArray(payload.deliveries) ? payload.deliveries : []);
+        setOverSummary(Array.isArray(payload.overSummary) ? payload.overSummary : []);
+        setFallOfWickets(Array.isArray(payload.fallOfWickets) ? payload.fallOfWickets : []);
+        setBattingStats(Array.isArray(payload.battingCard) ? payload.battingCard : []);
+
+        const setupLineup = Array.isArray(payload.setup?.battingLineup)
+            ? payload.setup.battingLineup.map((p) => ({ name: p.name }))
+            : [];
+        setBattingLineup(setupLineup);
+
+        const setupAttack = Array.isArray(payload.setup?.bowlingAttack)
+            ? payload.setup.bowlingAttack.map((p) => ({ name: p.name, stats: { economy: p.economy } }))
+            : [];
+        setBowlingAttack(setupAttack);
+
+        setCurrentPartnership(payload.scoreboard?.partnership?.current || { runs: 0, balls: 0, batters: '-' });
+        setBestPartnership(payload.scoreboard?.partnership?.best || { runs: 0, balls: 0, batters: '-', wicketAt: '-' });
+
+        const activeBatters = (payload.battingCard || []).filter((r) => r.status === 'Batting' || r.status === 'Not out');
+        setCurrentPair({
+            striker: activeBatters[0] ? { name: activeBatters[0].name } : null,
+            nonStriker: activeBatters[1] ? { name: activeBatters[1].name } : null
+        });
+
+        const next = (payload.battingCard || []).find((r) => r.status === 'Yet to bat');
+        setNextBatter(next ? { name: next.name } : null);
+
+        const lastOver = Array.isArray(payload.overSummary) && payload.overSummary.length
+            ? payload.overSummary[payload.overSummary.length - 1]
+            : null;
+        setCurrentOverBowler(lastOver?.bowlerName ? { name: lastOver.bowlerName } : null);
+
+        if (players.length) {
+            const restoredAnchor = players.find((p) => p.name === payload.setup?.openingBatter);
+            const restoredLead = players.find((p) => p.name === payload.setup?.leadBowler);
+            if (restoredAnchor) setAnchorBatter(restoredAnchor);
+            if (restoredLead) setLeadBowler(restoredLead);
+        }
+
+        return true;
+    };
+
+    useEffect(() => {
+        if (!gameOver || !matchLog.length) return;
+
+        const saveKey = `${runs}-${wickets}-${ballsFaced}-${matchLog.length}`;
+        if (saveKey === lastAutoSavedKeyRef.current) return;
+
+        lastAutoSavedKeyRef.current = saveKey;
+        saveLastSimulation(createExportPayload()).catch(() => {
+            setRestoreStatus('Auto-save failed');
+        });
+    }, [gameOver, matchLog.length, runs, wickets, ballsFaced, saveLastSimulation, createExportPayload]);
 
     const exportAsJson = () => {
         const payload = createExportPayload();
@@ -652,6 +757,35 @@ const MatchSimulator = () => {
         } catch {
             setCopyStatus('Copy failed');
             setTimeout(() => setCopyStatus(''), 1800);
+        }
+    };
+
+    const restoreLastSimulation = async () => {
+        try {
+            const saved = await fetchLastSimulation().unwrap();
+            if (!saved) {
+                setRestoreStatus('No saved simulation found');
+                setTimeout(() => setRestoreStatus(''), 1800);
+                return;
+            }
+
+            const applied = applySimulationPayload(saved);
+            setRestoreStatus(applied ? 'Last simulation restored' : 'Saved data is invalid');
+            setTimeout(() => setRestoreStatus(''), 1800);
+        } catch {
+            setRestoreStatus('Restore failed');
+            setTimeout(() => setRestoreStatus(''), 1800);
+        }
+    };
+
+    const clearSavedSimulation = async () => {
+        try {
+            await clearLastSimulation().unwrap();
+            setRestoreStatus('Saved simulation cleared');
+            setTimeout(() => setRestoreStatus(''), 1800);
+        } catch {
+            setRestoreStatus('Clear failed');
+            setTimeout(() => setRestoreStatus(''), 1800);
         }
     };
 
@@ -797,11 +931,33 @@ const MatchSimulator = () => {
                         >
                             Copy Summary
                         </button>
+                        <button
+                            onClick={restoreLastSimulation}
+                            disabled={isRestoringSimulation}
+                            className="px-4 py-2 rounded-lg text-sm font-semibold border border-amber-400/40 text-amber-300 hover:bg-amber-500/10 disabled:text-slate-500 disabled:border-slate-700 disabled:hover:bg-transparent"
+                        >
+                            {isRestoringSimulation ? 'Restoring...' : 'Restore Last'}
+                        </button>
+                        <button
+                            onClick={clearSavedSimulation}
+                            disabled={isClearingSimulation}
+                            className="px-4 py-2 rounded-lg text-sm font-semibold border border-rose-400/40 text-rose-300 hover:bg-rose-500/10 disabled:text-slate-500 disabled:border-slate-700 disabled:hover:bg-transparent"
+                        >
+                            {isClearingSimulation ? 'Clearing...' : 'Clear Saved'}
+                        </button>
                     </div>
                     {copyStatus && (
                         <p className={`mt-2 text-xs ${copyStatus === 'Summary copied' ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {copyStatus}
                         </p>
+                    )}
+                    {restoreStatus && (
+                        <p className={`mt-1 text-xs ${restoreStatus.toLowerCase().includes('failed') || restoreStatus.toLowerCase().includes('invalid') ? 'text-rose-400' : 'text-amber-300'}`}>
+                            {restoreStatus}
+                        </p>
+                    )}
+                    {isSavingSimulation && (
+                        <p className="mt-1 text-xs text-slate-400">Auto-saving latest simulation...</p>
                     )}
                 </div>
 
