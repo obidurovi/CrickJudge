@@ -588,6 +588,18 @@ const MatchSimulator = () => {
     const overText = getOversText(ballsFaced);
     const powerplayActive = ballsFaced < 36;
     const inningsComplete = ballsFaced >= TOTAL_BALLS || wickets >= 10;
+    const runtimeUpdatedAtMs = runtimeResumeAvailable && runtimeSnapshot?.runtimeUpdatedAt
+        ? Date.parse(runtimeSnapshot.runtimeUpdatedAt)
+        : NaN;
+    const savedUpdatedAtMs = hasSavedSnapshot && savedSnapshotInfo?.generatedAt
+        ? Date.parse(savedSnapshotInfo.generatedAt)
+        : NaN;
+    const runtimeHasTimestamp = Number.isFinite(runtimeUpdatedAtMs);
+    const savedHasTimestamp = Number.isFinite(savedUpdatedAtMs);
+    const canCompareRecency = runtimeResumeAvailable && hasSavedSnapshot && runtimeHasTimestamp && savedHasTimestamp;
+    const runtimeIsNewer = canCompareRecency && runtimeUpdatedAtMs > savedUpdatedAtMs;
+    const savedIsNewer = canCompareRecency && savedUpdatedAtMs > runtimeUpdatedAtMs;
+    const snapshotsSameAge = canCompareRecency && runtimeUpdatedAtMs === savedUpdatedAtMs;
     const recentBalls = matchLog.slice(-18);
     const overRunTrend = overSummary.reduce((acc, entry) => {
         const previousCumulative = acc.length ? acc[acc.length - 1].cumulative : 0;
@@ -1200,8 +1212,13 @@ const MatchSimulator = () => {
                             </div>
 
                             <div className="p-5 space-y-4">
-                                <div className="rounded-xl border border-indigo-400/20 bg-indigo-500/10 p-4">
-                                    <p className="text-xs uppercase text-indigo-300 mb-2">Runtime Snapshot (Redux)</p>
+                                <div className={`rounded-xl border p-4 ${runtimeIsNewer ? 'border-emerald-400/40 bg-emerald-500/10 ring-1 ring-emerald-400/30' : 'border-indigo-400/20 bg-indigo-500/10'}`}>
+                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                        <p className="text-xs uppercase text-indigo-300">Runtime Snapshot (Redux)</p>
+                                        {runtimeIsNewer && <span className="rounded-full border border-emerald-400/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300">Newer</span>}
+                                        {savedIsNewer && <span className="rounded-full border border-slate-500/40 bg-slate-700/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-300">Older</span>}
+                                        {snapshotsSameAge && <span className="rounded-full border border-cyan-400/40 bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cyan-300">Same Time</span>}
+                                    </div>
                                     <p className="text-sm text-slate-300 mb-3">Fast in-memory state from current app session.</p>
                                     <div className="mb-3 text-xs text-slate-300 space-y-1">
                                         <p>Score: {runtimeResumeAvailable ? `${runtimeSnapshot?.runs ?? 0}/${runtimeSnapshot?.wickets ?? 0}` : 'N/A'}</p>
@@ -1226,8 +1243,13 @@ const MatchSimulator = () => {
                                     </div>
                                 </div>
 
-                                <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-4">
-                                    <p className="text-xs uppercase text-amber-300 mb-2">Last Saved (RTK Query)</p>
+                                <div className={`rounded-xl border p-4 ${savedIsNewer ? 'border-emerald-400/40 bg-emerald-500/10 ring-1 ring-emerald-400/30' : 'border-amber-400/20 bg-amber-500/10'}`}>
+                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                        <p className="text-xs uppercase text-amber-300">Last Saved (RTK Query)</p>
+                                        {savedIsNewer && <span className="rounded-full border border-emerald-400/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300">Newer</span>}
+                                        {runtimeIsNewer && <span className="rounded-full border border-slate-500/40 bg-slate-700/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-300">Older</span>}
+                                        {snapshotsSameAge && <span className="rounded-full border border-cyan-400/40 bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cyan-300">Same Time</span>}
+                                    </div>
                                     <p className="text-sm text-slate-300 mb-3">Persisted local snapshot from completed simulations.</p>
                                     <div className="mb-3 text-xs text-slate-300 space-y-1">
                                         <p>Score: {hasSavedSnapshot ? (savedSnapshotInfo?.scoreText || 'N/A') : 'N/A'}</p>
