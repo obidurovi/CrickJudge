@@ -150,6 +150,8 @@ const MatchSimulator = () => {
     const [copyStatus, setCopyStatus] = useState('');
     const [restoreStatus, setRestoreStatus] = useState('');
     const [runtimeHydrated, setRuntimeHydrated] = useState(false);
+    const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
+    const [hasSavedSnapshot, setHasSavedSnapshot] = useState(false);
 
     const [saveLastSimulation, { isLoading: isSavingSimulation }] = useSaveLastSimulationMutation();
     const [clearLastSimulation, { isLoading: isClearingSimulation }] = useClearLastSimulationMutation();
@@ -281,6 +283,18 @@ const MatchSimulator = () => {
         setGameOver(false);
         dispatch(clearRuntimeSnapshot());
     };
+
+    const checkSavedSnapshotAvailability = useCallback(async () => {
+        try {
+            const saved = await fetchLastSimulation().unwrap();
+            const available = !!saved;
+            setHasSavedSnapshot(available);
+            return available;
+        } catch {
+            setHasSavedSnapshot(false);
+            return false;
+        }
+    }, [fetchLastSimulation]);
 
     const playInnings = async () => {
         if (!anchorBatter || !leadBowler) return;
@@ -738,12 +752,23 @@ const MatchSimulator = () => {
         if (runtimeHydrated) return;
         if (loadingPlayers) return;
 
-        if (runtimeSnapshot?.hasData) {
-            setRestoreStatus('Runtime snapshot available. Click Resume Runtime.');
-        }
+        (async () => {
+            const runtimeAvailable = !!runtimeSnapshot?.hasData;
+            const savedAvailable = await checkSavedSnapshotAvailability();
 
-        setRuntimeHydrated(true);
-    }, [runtimeHydrated, loadingPlayers, runtimeSnapshot, applyRuntimeSnapshot]);
+            if (runtimeAvailable && savedAvailable) {
+                setRestoreStatus('Choose runtime source to continue');
+                setIsSourceModalOpen(true);
+            } else if (runtimeAvailable) {
+                setRestoreStatus('Runtime snapshot available. Click Resume Runtime.');
+            } else if (savedAvailable) {
+                setRestoreStatus('Saved snapshot available. Click Restore Last.');
+            }
+
+            setRuntimeHydrated(true);
+        })();
+
+    }, [runtimeHydrated, loadingPlayers, runtimeSnapshot, checkSavedSnapshotAvailability]);
 
     useEffect(() => {
         if (!gameOver || !matchLog.length) return;
@@ -752,9 +777,12 @@ const MatchSimulator = () => {
         if (saveKey === lastAutoSavedKeyRef.current) return;
 
         lastAutoSavedKeyRef.current = saveKey;
-        saveLastSimulation(createExportPayload()).catch(() => {
-            setRestoreStatus('Auto-save failed');
-        });
+        saveLastSimulation(createExportPayload())
+            .unwrap()
+            .then(() => setHasSavedSnapshot(true))
+            .catch(() => {
+                setRestoreStatus('Auto-save failed');
+            });
     }, [gameOver, matchLog.length, runs, wickets, ballsFaced, saveLastSimulation, createExportPayload]);
 
     useEffect(() => {
@@ -898,15 +926,19 @@ const MatchSimulator = () => {
             const saved = await fetchLastSimulation().unwrap();
             if (!saved) {
                 setRestoreStatus('No saved simulation found');
+                setHasSavedSnapshot(false);
                 setTimeout(() => setRestoreStatus(''), 1800);
                 return;
             }
 
             const applied = applySimulationPayload(saved);
             setRestoreStatus(applied ? 'Last simulation restored' : 'Saved data is invalid');
+            setHasSavedSnapshot(!!saved);
+            setIsSourceModalOpen(false);
             setTimeout(() => setRestoreStatus(''), 1800);
         } catch {
             setRestoreStatus('Restore failed');
+            setHasSavedSnapshot(false);
             setTimeout(() => setRestoreStatus(''), 1800);
         }
     };
@@ -915,11 +947,29 @@ const MatchSimulator = () => {
         try {
             await clearLastSimulation().unwrap();
             setRestoreStatus('Saved simulation cleared');
+            setHasSavedSnapshot(false);
             setTimeout(() => setRestoreStatus(''), 1800);
         } catch {
             setRestoreStatus('Clear failed');
             setTimeout(() => setRestoreStatus(''), 1800);
         }
+    };
+
+    const clearRuntimeSimulation = () => {
+        dispatch(clearRuntimeSnapshot());
+        setRestoreStatus('Runtime snapshot cleared');
+        setIsSourceModalOpen(false);
+        setTimeout(() => setRestoreStatus(''), 1800);
+    };
+
+    const openSourceChooser = async () => {
+        await checkSavedSnapshotAvailability();
+        setIsSourceModalOpen(true);
+    };
+
+    const resumeRuntimeAndClose = () => {
+        resumeRuntimeSnapshot();
+        setIsSourceModalOpen(false);
     };
 
     const exportAsCsv = () => {
@@ -1044,6 +1094,13 @@ const MatchSimulator = () => {
 
                     <div className="mt-4 flex items-center justify-center gap-3">
                         <button
+                            onClick={openSourceChooser}
+                            disabled={!runtimeResumeAvailable && !hasSavedSnapshot}
+                            className="px-4 py-2 rounded-lg text-sm font-semibold border border-sky-400/40 text-sky-300 hover:bg-sky-500/10 disabled:text-slate-500 disabled:border-slate-700 disabled:hover:bg-transparent"
+                        >
+                            Choose Source
+                        </button>
+                        <button
                             onClick={resumeRuntimeSnapshot}
                             disabled={!runtimeResumeAvailable}
                             className="px-4 py-2 rounded-lg text-sm font-semibold border border-indigo-400/40 text-indigo-300 hover:bg-indigo-500/10 disabled:text-slate-500 disabled:border-slate-700 disabled:hover:bg-transparent"
@@ -1099,10 +1156,73 @@ const MatchSimulator = () => {
                     {runtimeResumeAvailable && (
                         <p className="mt-1 text-xs text-indigo-300">In-memory runtime is available for quick resume.</p>
                     )}
+                    {hasSavedSnapshot && (
+                        <p className="mt-1 text-xs text-amber-300">Saved RTK Query snapshot is available to restore.</p>
+                    )}
                     {isSavingSimulation && (
                         <p className="mt-1 text-xs text-slate-400">Auto-saving latest simulation...</p>
                     )}
                 </div>
+
+                {isSourceModalOpen && (
+                    <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-slate-900 shadow-2xl">
+                            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Choose Simulation Source</h3>
+                                <button
+                                    onClick={() => setIsSourceModalOpen(false)}
+                                    className="text-slate-400 hover:text-white text-sm"
+                                >
+                                    Close
+                                </button>
+                            </div>
+
+                            <div className="p-5 space-y-4">
+                                <div className="rounded-xl border border-indigo-400/20 bg-indigo-500/10 p-4">
+                                    <p className="text-xs uppercase text-indigo-300 mb-2">Runtime Snapshot (Redux)</p>
+                                    <p className="text-sm text-slate-300 mb-3">Fast in-memory state from current app session.</p>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={resumeRuntimeAndClose}
+                                            disabled={!runtimeResumeAvailable}
+                                            className="px-3 py-2 rounded-lg text-sm font-semibold border border-indigo-400/40 text-indigo-300 hover:bg-indigo-500/10 disabled:text-slate-500 disabled:border-slate-700"
+                                        >
+                                            Resume Runtime
+                                        </button>
+                                        <button
+                                            onClick={clearRuntimeSimulation}
+                                            disabled={!runtimeResumeAvailable}
+                                            className="px-3 py-2 rounded-lg text-sm font-semibold border border-rose-400/40 text-rose-300 hover:bg-rose-500/10 disabled:text-slate-500 disabled:border-slate-700"
+                                        >
+                                            Clear Runtime
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-4">
+                                    <p className="text-xs uppercase text-amber-300 mb-2">Last Saved (RTK Query)</p>
+                                    <p className="text-sm text-slate-300 mb-3">Persisted local snapshot from completed simulations.</p>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={restoreLastSimulation}
+                                            disabled={!hasSavedSnapshot || isRestoringSimulation}
+                                            className="px-3 py-2 rounded-lg text-sm font-semibold border border-amber-400/40 text-amber-300 hover:bg-amber-500/10 disabled:text-slate-500 disabled:border-slate-700"
+                                        >
+                                            {isRestoringSimulation ? 'Restoring...' : 'Restore Saved'}
+                                        </button>
+                                        <button
+                                            onClick={clearSavedSimulation}
+                                            disabled={!hasSavedSnapshot || isClearingSimulation}
+                                            className="px-3 py-2 rounded-lg text-sm font-semibold border border-rose-400/40 text-rose-300 hover:bg-rose-500/10 disabled:text-slate-500 disabled:border-slate-700"
+                                        >
+                                            {isClearingSimulation ? 'Clearing...' : 'Clear Saved'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {(matchLog.length > 0 || isPlaying || gameOver) && (
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
