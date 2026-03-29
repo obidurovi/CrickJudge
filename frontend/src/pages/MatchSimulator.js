@@ -152,6 +152,7 @@ const MatchSimulator = () => {
     const [runtimeHydrated, setRuntimeHydrated] = useState(false);
     const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
     const [hasSavedSnapshot, setHasSavedSnapshot] = useState(false);
+    const [savedSnapshotInfo, setSavedSnapshotInfo] = useState(null);
 
     const [saveLastSimulation, { isLoading: isSavingSimulation }] = useSaveLastSimulationMutation();
     const [clearLastSimulation, { isLoading: isClearingSimulation }] = useClearLastSimulationMutation();
@@ -289,9 +290,15 @@ const MatchSimulator = () => {
             const saved = await fetchLastSimulation().unwrap();
             const available = !!saved;
             setHasSavedSnapshot(available);
+            setSavedSnapshotInfo(available ? {
+                generatedAt: saved?.meta?.generatedAt || null,
+                scoreText: `${saved?.scoreboard?.runs ?? 0}/${saved?.scoreboard?.wickets ?? 0}`,
+                oversText: saved?.scoreboard?.overs || '0.0'
+            } : null);
             return available;
         } catch {
             setHasSavedSnapshot(false);
+            setSavedSnapshotInfo(null);
             return false;
         }
     }, [fetchLastSimulation]);
@@ -779,11 +786,18 @@ const MatchSimulator = () => {
         lastAutoSavedKeyRef.current = saveKey;
         saveLastSimulation(createExportPayload())
             .unwrap()
-            .then(() => setHasSavedSnapshot(true))
+            .then(() => {
+                setHasSavedSnapshot(true);
+                setSavedSnapshotInfo({
+                    generatedAt: new Date().toISOString(),
+                    scoreText: `${runs}/${wickets}`,
+                    oversText: overText
+                });
+            })
             .catch(() => {
                 setRestoreStatus('Auto-save failed');
             });
-    }, [gameOver, matchLog.length, runs, wickets, ballsFaced, saveLastSimulation, createExportPayload]);
+    }, [gameOver, matchLog.length, runs, wickets, ballsFaced, overText, saveLastSimulation, createExportPayload]);
 
     useEffect(() => {
         if (!runtimeHydrated) return;
@@ -796,6 +810,7 @@ const MatchSimulator = () => {
         }
 
         dispatch(setRuntimeSnapshot({
+            runtimeUpdatedAt: new Date().toISOString(),
             anchorBatterName: anchorBatter?.name || null,
             leadBowlerName: leadBowler?.name || null,
             isPlaying,
@@ -934,11 +949,17 @@ const MatchSimulator = () => {
             const applied = applySimulationPayload(saved);
             setRestoreStatus(applied ? 'Last simulation restored' : 'Saved data is invalid');
             setHasSavedSnapshot(!!saved);
+            setSavedSnapshotInfo(saved ? {
+                generatedAt: saved?.meta?.generatedAt || null,
+                scoreText: `${saved?.scoreboard?.runs ?? 0}/${saved?.scoreboard?.wickets ?? 0}`,
+                oversText: saved?.scoreboard?.overs || '0.0'
+            } : null);
             setIsSourceModalOpen(false);
             setTimeout(() => setRestoreStatus(''), 1800);
         } catch {
             setRestoreStatus('Restore failed');
             setHasSavedSnapshot(false);
+            setSavedSnapshotInfo(null);
             setTimeout(() => setRestoreStatus(''), 1800);
         }
     };
@@ -948,6 +969,7 @@ const MatchSimulator = () => {
             await clearLastSimulation().unwrap();
             setRestoreStatus('Saved simulation cleared');
             setHasSavedSnapshot(false);
+            setSavedSnapshotInfo(null);
             setTimeout(() => setRestoreStatus(''), 1800);
         } catch {
             setRestoreStatus('Clear failed');
@@ -1181,6 +1203,11 @@ const MatchSimulator = () => {
                                 <div className="rounded-xl border border-indigo-400/20 bg-indigo-500/10 p-4">
                                     <p className="text-xs uppercase text-indigo-300 mb-2">Runtime Snapshot (Redux)</p>
                                     <p className="text-sm text-slate-300 mb-3">Fast in-memory state from current app session.</p>
+                                    <div className="mb-3 text-xs text-slate-300 space-y-1">
+                                        <p>Score: {runtimeResumeAvailable ? `${runtimeSnapshot?.runs ?? 0}/${runtimeSnapshot?.wickets ?? 0}` : 'N/A'}</p>
+                                        <p>Overs: {runtimeResumeAvailable ? getOversText(runtimeSnapshot?.ballsFaced || 0) : 'N/A'}</p>
+                                        <p>Updated: {runtimeResumeAvailable && runtimeSnapshot?.runtimeUpdatedAt ? new Date(runtimeSnapshot.runtimeUpdatedAt).toLocaleString() : 'Unknown'}</p>
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <button
                                             onClick={resumeRuntimeAndClose}
@@ -1202,6 +1229,11 @@ const MatchSimulator = () => {
                                 <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-4">
                                     <p className="text-xs uppercase text-amber-300 mb-2">Last Saved (RTK Query)</p>
                                     <p className="text-sm text-slate-300 mb-3">Persisted local snapshot from completed simulations.</p>
+                                    <div className="mb-3 text-xs text-slate-300 space-y-1">
+                                        <p>Score: {hasSavedSnapshot ? (savedSnapshotInfo?.scoreText || 'N/A') : 'N/A'}</p>
+                                        <p>Overs: {hasSavedSnapshot ? (savedSnapshotInfo?.oversText || 'N/A') : 'N/A'}</p>
+                                        <p>Saved: {hasSavedSnapshot && savedSnapshotInfo?.generatedAt ? new Date(savedSnapshotInfo.generatedAt).toLocaleString() : 'Unknown'}</p>
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <button
                                             onClick={restoreLastSimulation}
