@@ -129,6 +129,7 @@ const MatchSimulator = () => {
     const [fallOfWickets, setFallOfWickets] = useState([]);
     const [currentPartnership, setCurrentPartnership] = useState({ runs: 0, balls: 0, batters: '-' });
     const [bestPartnership, setBestPartnership] = useState({ runs: 0, balls: 0, batters: '-', wicketAt: '-' });
+    const [copyStatus, setCopyStatus] = useState('');
 
     const cancelledRef = useRef(false);
 
@@ -249,6 +250,7 @@ const MatchSimulator = () => {
         setFallOfWickets([]);
         setCurrentPartnership({ runs: 0, balls: 0, batters: '-' });
         setBestPartnership({ runs: 0, balls: 0, batters: '-', wicketAt: '-' });
+        setCopyStatus('');
         setGameOver(false);
     };
 
@@ -600,6 +602,59 @@ const MatchSimulator = () => {
         triggerDownload(JSON.stringify(payload, null, 2), 'match-simulation.json', 'application/json;charset=utf-8;');
     };
 
+    const buildShareSummary = (payload) => {
+        const topBatters = [...payload.battingCard]
+            .sort((a, b) => b.runs - a.runs)
+            .slice(0, 3)
+            .map((b, idx) => `${idx + 1}. ${b.name} ${b.runs}(${b.balls})`)
+            .join(' | ');
+
+        const bestOver = payload.overSummary.length
+            ? payload.overSummary.reduce((best, over) => (over.runs > best.runs ? over : best), payload.overSummary[0])
+            : null;
+
+        const fowLine = payload.fallOfWickets.length
+            ? payload.fallOfWickets.map((f) => `${f.score}-${f.wicket} (${f.over})`).join(', ')
+            : 'No wickets';
+
+        return [
+            `CrickJudge T20 Simulation`,
+            `Score: ${payload.scoreboard.runs}/${payload.scoreboard.wickets} in ${payload.scoreboard.overs} overs`,
+            `RR: ${payload.scoreboard.currentRunRate} | Projected: ${payload.scoreboard.projectedScore}`,
+            `Powerplay: ${payload.scoreboard.powerplay.runs}/${payload.scoreboard.powerplay.wickets}`,
+            `Current Partnership: ${payload.scoreboard.partnership.current.runs} (${payload.scoreboard.partnership.current.balls})`,
+            `Best Partnership: ${payload.scoreboard.partnership.best.runs} (${payload.scoreboard.partnership.best.balls}) ${payload.scoreboard.partnership.best.batters}`,
+            `Top Batters: ${topBatters || 'N/A'}`,
+            `Best Over: ${bestOver ? `Over ${bestOver.over} - ${bestOver.runs}/${bestOver.wickets}` : 'N/A'}`,
+            `FOW: ${fowLine}`
+        ].join('\n');
+    };
+
+    const copySummaryToClipboard = async () => {
+        try {
+            const summary = buildShareSummary(createExportPayload());
+            if (navigator?.clipboard?.writeText) {
+                await navigator.clipboard.writeText(summary);
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = summary;
+                textarea.setAttribute('readonly', '');
+                textarea.style.position = 'absolute';
+                textarea.style.left = '-9999px';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            }
+
+            setCopyStatus('Summary copied');
+            setTimeout(() => setCopyStatus(''), 1800);
+        } catch {
+            setCopyStatus('Copy failed');
+            setTimeout(() => setCopyStatus(''), 1800);
+        }
+    };
+
     const exportAsCsv = () => {
         const payload = createExportPayload();
         const rows = [
@@ -735,7 +790,19 @@ const MatchSimulator = () => {
                         >
                             Export CSV
                         </button>
+                        <button
+                            onClick={copySummaryToClipboard}
+                            disabled={matchLog.length === 0}
+                            className="px-4 py-2 rounded-lg text-sm font-semibold border border-violet-400/40 text-violet-300 hover:bg-violet-500/10 disabled:text-slate-500 disabled:border-slate-700 disabled:hover:bg-transparent"
+                        >
+                            Copy Summary
+                        </button>
                     </div>
+                    {copyStatus && (
+                        <p className={`mt-2 text-xs ${copyStatus === 'Summary copied' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {copyStatus}
+                        </p>
+                    )}
                 </div>
 
                 {(matchLog.length > 0 || isPlaying || gameOver) && (
