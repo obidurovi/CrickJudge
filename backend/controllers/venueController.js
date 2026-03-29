@@ -1,5 +1,6 @@
 const Venue = require('../models/Venue');
 const cache = require('../config/cache');
+const { seedVenuesInDb } = require('../utils/venueSeeder');
 
 const getVenues = async (req, res) => {
     try {
@@ -18,4 +19,25 @@ const getVenues = async (req, res) => {
     }
 };
 
-module.exports = { getVenues };
+const seedVenues = async (req, res) => {
+    try {
+        const adminSeedKey = process.env.ADMIN_SEED_KEY;
+        if (adminSeedKey) {
+            const providedKey = req.headers['x-admin-seed-key'];
+            if (providedKey !== adminSeedKey) {
+                return res.status(401).json({ message: 'Unauthorized: invalid admin seed key' });
+            }
+        }
+
+        const result = await seedVenuesInDb();
+        return res.json({
+            message: 'Venue seeding completed',
+            ...result
+        });
+    } catch (error) {
+        console.error('Error seeding venues:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+module.exports = { getVenues, seedVenues };
