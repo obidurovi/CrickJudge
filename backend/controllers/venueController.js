@@ -22,11 +22,13 @@ const getVenues = async (req, res) => {
 const seedVenues = async (req, res) => {
     try {
         const adminSeedKey = process.env.ADMIN_SEED_KEY;
-        if (adminSeedKey) {
-            const providedKey = req.headers['x-admin-seed-key'];
-            if (providedKey !== adminSeedKey) {
-                return res.status(401).json({ message: 'Unauthorized: invalid admin seed key' });
-            }
+        if (!adminSeedKey) {
+            return res.status(503).json({ message: 'ADMIN_SEED_KEY is not configured on the server' });
+        }
+
+        const providedKey = req.headers['x-admin-seed-key'];
+        if (providedKey !== adminSeedKey) {
+            return res.status(401).json({ message: 'Unauthorized: invalid admin seed key' });
         }
 
         const rawReplace = req.body?.replaceExisting ?? req.query?.replaceExisting;
