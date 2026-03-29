@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 const TOTAL_OVERS = 20;
 const TOTAL_BALLS = TOTAL_OVERS * 6;
@@ -529,6 +530,11 @@ const MatchSimulator = () => {
     const powerplayActive = ballsFaced < 36;
     const inningsComplete = ballsFaced >= TOTAL_BALLS || wickets >= 10;
     const recentBalls = matchLog.slice(-18);
+    const overRunTrend = overSummary.map((entry) => ({
+        over: `O${entry.over}`,
+        runs: entry.runs,
+        wickets: entry.wickets
+    }));
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200">
@@ -705,6 +711,27 @@ const MatchSimulator = () => {
                                     <p className="text-sm uppercase tracking-wider text-slate-300">Over Summary</p>
                                     <p className="text-xs text-slate-500">Runs / Wickets / Bowler</p>
                                 </div>
+
+                                <div className="h-44 mb-5 border border-white/10 rounded-xl bg-slate-900/50 p-2">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={overRunTrend} margin={{ top: 8, right: 8, left: -18, bottom: 4 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#334155" strokeOpacity={0.4} />
+                                            <XAxis dataKey="over" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} />
+                                            <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} />
+                                            <Tooltip
+                                                contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '0.5rem' }}
+                                                labelStyle={{ color: '#e2e8f0', fontWeight: 600 }}
+                                                itemStyle={{ color: '#cbd5e1' }}
+                                                formatter={(value, name, payload) => {
+                                                    const wicketText = payload?.payload?.wickets ? ` | Wkts ${payload.payload.wickets}` : '';
+                                                    return [`Runs ${value}${wicketText}`, ''];
+                                                }}
+                                            />
+                                            <Bar dataKey="runs" fill="#f97316" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+
                                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
                                     {overSummary.map((entry) => (
                                         <div key={entry.over} className="rounded-xl border border-white/10 bg-slate-900/70 p-3">
