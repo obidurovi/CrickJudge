@@ -36,6 +36,14 @@ const getBallLabel = (ballNumber) => {
 
 const getOversText = (balls) => `${Math.floor(balls / 6)}.${balls % 6}`;
 
+const toCsvValue = (value) => {
+    const raw = value === null || value === undefined ? '' : String(value);
+    if (raw.includes(',') || raw.includes('"') || raw.includes('\n')) {
+        return `"${raw.replace(/"/g, '""')}"`;
+    }
+    return raw;
+};
+
 const createShotPoint = (runs, isPowerplay) => {
     const sectors = [12, 28, 42, 58, 74, 92, 108, 124, 142, 160, 178, 202, 220, 238, 256, 272, 290, 308, 326, 344];
     const angle = sectors[Math.floor(Math.random() * sectors.length)] + (Math.random() * 10 - 5);
@@ -542,6 +550,105 @@ const MatchSimulator = () => {
         return acc;
     }, []);
 
+    const createExportPayload = () => ({
+        meta: {
+            generatedAt: new Date().toISOString(),
+            format: 'T20 innings simulation'
+        },
+        setup: {
+            openingBatter: anchorBatter?.name || null,
+            leadBowler: leadBowler?.name || null,
+            battingLineup: battingLineup.map((p, idx) => ({ order: idx + 1, name: p.name })),
+            bowlingAttack: bowlingAttack.map((p) => ({ name: p.name, economy: Number(p?.stats?.economy || 0) }))
+        },
+        scoreboard: {
+            runs,
+            wickets,
+            overs: overText,
+            currentRunRate: Number(currentRR.toFixed(2)),
+            projectedScore: Math.round(projectedScore),
+            powerplay: {
+                active: powerplayActive,
+                runs: powerplayRuns,
+                wickets: powerplayWickets
+            },
+            partnership: {
+                current: currentPartnership,
+                best: bestPartnership
+            }
+        },
+        battingCard: battingStats,
+        overSummary,
+        fallOfWickets,
+        deliveries: matchLog
+    });
+
+    const triggerDownload = (content, fileName, mimeType) => {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const exportAsJson = () => {
+        const payload = createExportPayload();
+        triggerDownload(JSON.stringify(payload, null, 2), 'match-simulation.json', 'application/json;charset=utf-8;');
+    };
+
+    const exportAsCsv = () => {
+        const payload = createExportPayload();
+        const rows = [
+            ['Section', 'Metric', 'Value'],
+            ['Scoreboard', 'Score', `${payload.scoreboard.runs}/${payload.scoreboard.wickets}`],
+            ['Scoreboard', 'Overs', payload.scoreboard.overs],
+            ['Scoreboard', 'Current RR', payload.scoreboard.currentRunRate],
+            ['Scoreboard', 'Projected Score', payload.scoreboard.projectedScore],
+            ['Scoreboard', 'Powerplay', `${payload.scoreboard.powerplay.runs}/${payload.scoreboard.powerplay.wickets}`],
+            ['Partnership', 'Current', `${payload.scoreboard.partnership.current.runs} (${payload.scoreboard.partnership.current.balls})`],
+            ['Partnership', 'Best', `${payload.scoreboard.partnership.best.runs} (${payload.scoreboard.partnership.best.balls}) - ${payload.scoreboard.partnership.best.batters}`]
+        ];
+
+        rows.push(['', '', '']);
+        rows.push(['Batting Card', 'Name', 'R/B | 4s | 6s | SR | Status']);
+        payload.battingCard.forEach((row) => {
+            rows.push([
+                'Batting Card',
+                `${row.order}. ${row.name}`,
+                `${row.runs}/${row.balls} | ${row.fours} | ${row.sixes} | ${row.strikeRate.toFixed(1)} | ${row.status}`
+            ]);
+        });
+
+        rows.push(['', '', '']);
+        rows.push(['Over Summary', 'Over', 'Runs/Wkts | Bowler']);
+        payload.overSummary.forEach((row) => {
+            rows.push(['Over Summary', `Over ${row.over}`, `${row.runs}/${row.wickets} | ${row.bowlerName}`]);
+        });
+
+        rows.push(['', '', '']);
+        rows.push(['Fall Of Wickets', 'Wicket', 'Detail']);
+        payload.fallOfWickets.forEach((row) => {
+            rows.push(['Fall Of Wickets', `${row.wicket}`, `${row.score}-${row.wicket} (${row.over}) ${row.batter} b ${row.bowler}`]);
+        });
+
+        rows.push(['', '', '']);
+        rows.push(['Ball Log', 'Ball', 'Event']);
+        payload.deliveries.forEach((row) => {
+            rows.push([
+                'Ball Log',
+                row.label,
+                `${row.scoreAfter} | ${row.isWicket ? 'W' : row.runs} | ${row.text} | ${row.bowlerName}`
+            ]);
+        });
+
+        const csv = rows.map((row) => row.map(toCsvValue).join(',')).join('\n');
+        triggerDownload(csv, 'match-simulation.csv', 'text/csv;charset=utf-8;');
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200">
             <nav className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-lg border-b border-white/10 shadow-lg">
@@ -612,6 +719,23 @@ const MatchSimulator = () => {
                     >
                         {isPlaying ? 'Simulating 20 Overs...' : gameOver ? 'Simulate Again' : 'Start Full T20 Innings'}
                     </button>
+
+                    <div className="mt-4 flex items-center justify-center gap-3">
+                        <button
+                            onClick={exportAsJson}
+                            disabled={matchLog.length === 0}
+                            className="px-4 py-2 rounded-lg text-sm font-semibold border border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/10 disabled:text-slate-500 disabled:border-slate-700 disabled:hover:bg-transparent"
+                        >
+                            Export JSON
+                        </button>
+                        <button
+                            onClick={exportAsCsv}
+                            disabled={matchLog.length === 0}
+                            className="px-4 py-2 rounded-lg text-sm font-semibold border border-emerald-400/40 text-emerald-300 hover:bg-emerald-500/10 disabled:text-slate-500 disabled:border-slate-700 disabled:hover:bg-transparent"
+                        >
+                            Export CSV
+                        </button>
+                    </div>
                 </div>
 
                 {(matchLog.length > 0 || isPlaying || gameOver) && (
