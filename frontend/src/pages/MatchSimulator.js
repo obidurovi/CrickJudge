@@ -8,6 +8,8 @@ const BALL_DELAY_MS = 180;
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
+const getPlayerId = (player) => player?._id || player?.apiId || player?.name;
+
 const runColor = (runs) => {
     if (runs === 6) return '#a855f7';
     if (runs === 4) return '#3b82f6';
@@ -49,11 +51,50 @@ const createShotPoint = (runs, isPowerplay) => {
     };
 };
 
+const buildBattingLineup = (anchorBatter, candidates) => {
+    const anchorId = getPlayerId(anchorBatter);
+    const pool = candidates
+        .filter((p) => getPlayerId(p) !== anchorId)
+        .sort((a, b) => (Number(b?.stats?.strikeRate) || 0) - (Number(a?.stats?.strikeRate) || 0));
+
+    return [anchorBatter, ...pool.slice(0, 10)];
+};
+
+const buildBowlingAttack = (leadBowler, candidates) => {
+    const leadId = getPlayerId(leadBowler);
+    const pool = candidates
+        .filter((p) => getPlayerId(p) !== leadId)
+        .sort((a, b) => (Number(a?.stats?.economy) || 20) - (Number(b?.stats?.economy) || 20));
+
+    return [leadBowler, ...pool.slice(0, 4)];
+};
+
+const pickBowlerForOver = ({ overNumber, attack, spellById, previousBowlerId }) => {
+    const isPowerplay = overNumber <= 6;
+    const isDeath = overNumber >= 16;
+
+    const ppGroup = attack.slice(0, Math.min(3, attack.length));
+    const middleGroup = attack.length > 3 ? attack.slice(1) : attack;
+    const deathGroup = attack.slice(0, Math.min(2, attack.length));
+
+    const preferred = isPowerplay ? ppGroup : (isDeath ? deathGroup : middleGroup);
+
+    const allowed = (list) => list.filter((b) => (spellById[getPlayerId(b)] || 0) < 4);
+    const nonConsecutive = (list) => list.filter((b) => getPlayerId(b) !== previousBowlerId);
+
+    let options = nonConsecutive(allowed(preferred));
+    if (!options.length) options = allowed(preferred);
+    if (!options.length) options = nonConsecutive(allowed(attack));
+    if (!options.length) options = allowed(attack);
+
+    return options[0] || attack[0] || null;
+};
+
 const MatchSimulator = () => {
     const [players, setPlayers] = useState([]);
     const [loadingPlayers, setLoadingPlayers] = useState(true);
-    const [batsman, setBatsman] = useState(null);
-    const [bowler, setBowler] = useState(null);
+    const [anchorBatter, setAnchorBatter] = useState(null);
+    const [leadBowler, setLeadBowler] = useState(null);
 
     const [isPlaying, setIsPlaying] = useState(false);
     const [gameOver, setGameOver] = useState(false);
@@ -68,6 +109,13 @@ const MatchSimulator = () => {
     const [matchLog, setMatchLog] = useState([]);
     const [overSummary, setOverSummary] = useState([]);
     const [wagonShots, setWagonShots] = useState([]);
+
+    const [battingLineup, setBattingLineup] = useState([]);
+    const [bowlingAttack, setBowlingAttack] = useState([]);
+    const [currentPair, setCurrentPair] = useState({ striker: null, nonStriker: null });
+    const [nextBatter, setNextBatter] = useState(null);
+    const [currentOverBowler, setCurrentOverBowler] = useState(null);
+    const [bowlingSpells, setBowlingSpells] = useState([]);
 
     const cancelledRef = useRef(false);
 
@@ -105,11 +153,11 @@ const MatchSimulator = () => {
         [players]
     );
 
-    const simulateDelivery = ({ ballNumber }) => {
+    const simulateDelivery = ({ ballNumber, striker, bowler }) => {
         const over = Math.floor((ballNumber - 1) / 6) + 1;
         const isPowerplay = over <= 6;
 
-        const strikeRate = Number(batsman?.stats?.strikeRate) || 120;
+        const strikeRate = Number(striker?.stats?.strikeRate) || 120;
         const economy = Number(bowler?.stats?.economy) || 7;
 
         const battingIntent = clamp((strikeRate - 95) / 40, 0.35, 1.45);
@@ -180,72 +228,129 @@ const MatchSimulator = () => {
         setMatchLog([]);
         setOverSummary([]);
         setWagonShots([]);
+        setBowlingSpells([]);
+        setCurrentOverBowler(null);
+        setCurrentPair({ striker: null, nonStriker: null });
+        setNextBatter(null);
         setGameOver(false);
     };
 
     const playInnings = async () => {
-        if (!batsman || !bowler) return;
+        if (!anchorBatter || !leadBowler) return;
+
+        const lineup = buildBattingLineup(anchorBatter, batsmanOptions);
+        const attack = buildBowlingAttack(leadBowler, bowlerOptions);
+        if (lineup.length < 2 || attack.length < 1) return;
 
         cancelledRef.current = false;
         setIsPlaying(true);
         resetInningsState();
+
+        setBattingLineup(lineup);
+        setBowlingAttack(attack);
+
+        let striker = lineup[0];
+        let nonStriker = lineup[1];
+        let nextBatterIndex = 2;
+        let overBowler = null;
 
         let currentRuns = 0;
         let currentWickets = 0;
         let currentBalls = 0;
         let ppRuns = 0;
         let ppWickets = 0;
+
+        const spellById = {};
         const log = [];
         const overs = [];
         const shots = [];
 
+        setCurrentPair({ striker, nonStriker });
+        setNextBatter(lineup[nextBatterIndex] || null);
+
         for (let ballNumber = 1; ballNumber <= TOTAL_BALLS && currentWickets < 10; ballNumber++) {
+            const overNumber = Math.floor((ballNumber - 1) / 6) + 1;
+            const isOverStart = ((ballNumber - 1) % 6) === 0;
+
+            if (isOverStart) {
+                overBowler = pickBowlerForOver({
+                    overNumber,
+                    attack,
+                    spellById,
+                    previousBowlerId: getPlayerId(overBowler)
+                });
+                setCurrentOverBowler(overBowler);
+            }
+
             await new Promise((resolve) => setTimeout(resolve, BALL_DELAY_MS));
             if (cancelledRef.current) {
                 setIsPlaying(false);
                 return;
             }
 
-            const event = simulateDelivery({ ballNumber });
+            const event = simulateDelivery({ ballNumber, striker, bowler: overBowler });
             currentBalls += 1;
 
             const overIndex = Math.floor((ballNumber - 1) / 6);
             if (!overs[overIndex]) {
-                overs[overIndex] = { over: overIndex + 1, runs: 0, wickets: 0, balls: 0 };
+                overs[overIndex] = {
+                    over: overIndex + 1,
+                    runs: 0,
+                    wickets: 0,
+                    balls: 0,
+                    bowlerName: overBowler?.name || 'Unknown'
+                };
             }
 
             overs[overIndex].balls += 1;
+
+            const bowlerId = getPlayerId(overBowler);
+            spellById[bowlerId] = spellById[bowlerId] || 0;
 
             if (event.isWicket) {
                 currentWickets += 1;
                 overs[overIndex].wickets += 1;
                 if (event.isPowerplay) ppWickets += 1;
+
+                if (nextBatterIndex < lineup.length) {
+                    striker = lineup[nextBatterIndex];
+                    nextBatterIndex += 1;
+                }
             } else {
                 currentRuns += event.runs;
                 overs[overIndex].runs += event.runs;
                 if (event.isPowerplay) ppRuns += event.runs;
+
+                if (event.runs % 2 === 1) {
+                    [striker, nonStriker] = [nonStriker, striker];
+                }
             }
-
-            const inningsOverText = getOversText(currentBalls);
-            const currentRR = currentBalls ? (currentRuns * 6) / currentBalls : 0;
-
-            const eventWithContext = {
-                ...event,
-                label: getBallLabel(ballNumber),
-                scoreAfter: `${currentRuns}/${currentWickets}`,
-                overText: inningsOverText,
-                runRateAfter: currentRR
-            };
 
             if (event.shot) {
                 shots.push({
                     ...event.shot,
                     runs: event.runs,
-                    label: eventWithContext.label
+                    label: getBallLabel(ballNumber)
                 });
             }
 
-            log.push(eventWithContext);
+            if (currentBalls % 6 === 0) {
+                spellById[bowlerId] += 1;
+                [striker, nonStriker] = [nonStriker, striker];
+            }
+
+            const inningsOverText = getOversText(currentBalls);
+            const currentRR = currentBalls ? (currentRuns * 6) / currentBalls : 0;
+
+            log.push({
+                ...event,
+                label: getBallLabel(ballNumber),
+                strikerName: striker?.name,
+                bowlerName: overBowler?.name,
+                scoreAfter: `${currentRuns}/${currentWickets}`,
+                overText: inningsOverText,
+                runRateAfter: currentRR
+            });
 
             setRuns(currentRuns);
             setWickets(currentWickets);
@@ -255,6 +360,18 @@ const MatchSimulator = () => {
             setMatchLog([...log]);
             setOverSummary([...overs.filter(Boolean)]);
             setWagonShots([...shots]);
+            setCurrentPair({ striker, nonStriker });
+            setNextBatter(lineup[nextBatterIndex] || null);
+            setBowlingSpells(
+                Object.keys(spellById).map((id) => {
+                    const p = attack.find((x) => getPlayerId(x) === id);
+                    return {
+                        id,
+                        name: p?.name || 'Unknown',
+                        overs: spellById[id]
+                    };
+                })
+            );
         }
 
         setIsPlaying(false);
@@ -290,36 +407,36 @@ const MatchSimulator = () => {
             <div className="max-w-7xl mx-auto px-4 py-10">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                     <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
-                        <label className="block text-blue-400 font-bold mb-2">Select Batsman Profile</label>
+                        <label className="block text-blue-400 font-bold mb-2">Select Opening Batter</label>
                         <select
                             className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white"
-                            value={batsman ? (batsman._id || batsman.apiId) : ''}
-                            onChange={(e) => setBatsman(batsmanOptions.find((p) => (p._id || p.apiId) === e.target.value) || null)}
+                            value={anchorBatter ? getPlayerId(anchorBatter) : ''}
+                            onChange={(e) => setAnchorBatter(batsmanOptions.find((p) => getPlayerId(p) === e.target.value) || null)}
                         >
                             <option value="">Choose Player...</option>
                             {batsmanOptions.map((p) => (
-                                <option key={p._id || p.apiId} value={p._id || p.apiId}>{p.name}</option>
+                                <option key={getPlayerId(p)} value={getPlayerId(p)}>{p.name}</option>
                             ))}
                         </select>
-                        {batsman && (
-                            <p className="text-xs text-slate-400 mt-3">Strike Rate Influence: {batsman?.stats?.strikeRate || 'N/A'}</p>
+                        {anchorBatter && (
+                            <p className="text-xs text-slate-400 mt-3">Lineup auto-fills with top strike-rate batters after {anchorBatter.name}.</p>
                         )}
                     </div>
 
                     <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
-                        <label className="block text-red-400 font-bold mb-2">Select Bowler Profile</label>
+                        <label className="block text-red-400 font-bold mb-2">Select Lead Bowler</label>
                         <select
                             className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white"
-                            value={bowler ? (bowler._id || bowler.apiId) : ''}
-                            onChange={(e) => setBowler(bowlerOptions.find((p) => (p._id || p.apiId) === e.target.value) || null)}
+                            value={leadBowler ? getPlayerId(leadBowler) : ''}
+                            onChange={(e) => setLeadBowler(bowlerOptions.find((p) => getPlayerId(p) === e.target.value) || null)}
                         >
                             <option value="">Choose Player...</option>
                             {bowlerOptions.map((p) => (
-                                <option key={p._id || p.apiId} value={p._id || p.apiId}>{p.name}</option>
+                                <option key={getPlayerId(p)} value={getPlayerId(p)}>{p.name}</option>
                             ))}
                         </select>
-                        {bowler && (
-                            <p className="text-xs text-slate-400 mt-3">Economy Influence: {bowler?.stats?.economy || 'N/A'}</p>
+                        {leadBowler && (
+                            <p className="text-xs text-slate-400 mt-3">Bowler rotation auto-builds a 5-bowler attack using economy ranks.</p>
                         )}
                     </div>
                 </div>
@@ -327,9 +444,9 @@ const MatchSimulator = () => {
                 <div className="text-center mb-8">
                     <button
                         onClick={playInnings}
-                        disabled={!batsman || !bowler || isPlaying || loadingPlayers}
+                        disabled={!anchorBatter || !leadBowler || isPlaying || loadingPlayers}
                         className={`px-8 py-4 rounded-full font-bold text-lg shadow-lg transition-all transform hover:scale-105 ${
-                            !batsman || !bowler || loadingPlayers
+                            !anchorBatter || !leadBowler || loadingPlayers
                                 ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
                                 : isPlaying
                                     ? 'bg-yellow-600 text-white cursor-wait'
@@ -370,11 +487,41 @@ const MatchSimulator = () => {
                                     </div>
                                 </div>
 
+                                <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-xs text-slate-500 uppercase">Striker</p>
+                                        <p className="text-sm font-semibold text-white">{currentPair?.striker?.name || 'N/A'}</p>
+                                    </div>
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-xs text-slate-500 uppercase">Non-Striker</p>
+                                        <p className="text-sm font-semibold text-white">{currentPair?.nonStriker?.name || 'N/A'}</p>
+                                    </div>
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-xs text-slate-500 uppercase">Bowling This Over</p>
+                                        <p className="text-sm font-semibold text-white">{currentOverBowler?.name || 'N/A'}</p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-xs text-slate-500 uppercase">Next Batter In Queue</p>
+                                        <p className="text-sm font-semibold text-white">{nextBatter?.name || 'Tail End / None'}</p>
+                                    </div>
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-xs text-slate-500 uppercase">Bowling Spells</p>
+                                        <p className="text-xs text-slate-300 mt-1">
+                                            {bowlingSpells.length
+                                                ? bowlingSpells.map((s) => `${s.name} (${s.overs})`).join(' | ')
+                                                : 'No completed overs yet'}
+                                        </p>
+                                    </div>
+                                </div>
+
                                 <div className="mt-6">
                                     <p className="text-sm uppercase tracking-wider text-slate-400 mb-3">Recent Deliveries</p>
                                     <div className="flex flex-wrap gap-2">
                                         {recentBalls.map((event, index) => (
-                                            <div key={`${event.label}-${index}`} className={`w-11 h-11 rounded-full flex items-center justify-center font-bold border-2 ${outcomeClass(event)}`} title={`${event.label} - ${event.text}`}>
+                                            <div key={`${event.label}-${index}`} className={`w-11 h-11 rounded-full flex items-center justify-center font-bold border-2 ${outcomeClass(event)}`} title={`${event.label} - ${event.text} (${event.bowlerName})`}>
                                                 {event.isWicket ? 'W' : event.runs}
                                             </div>
                                         ))}
@@ -397,67 +544,92 @@ const MatchSimulator = () => {
                             <div className="bg-black/40 backdrop-blur-xl rounded-3xl border border-white/10 p-6">
                                 <div className="flex items-center justify-between mb-4">
                                     <p className="text-sm uppercase tracking-wider text-slate-300">Over Summary</p>
-                                    <p className="text-xs text-slate-500">Runs / Wickets per over</p>
+                                    <p className="text-xs text-slate-500">Runs / Wickets / Bowler</p>
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
                                     {overSummary.map((entry) => (
                                         <div key={entry.over} className="rounded-xl border border-white/10 bg-slate-900/70 p-3">
                                             <p className="text-xs text-slate-500">Over {entry.over}</p>
                                             <p className="text-lg font-bold text-white">{entry.runs}/{entry.wickets}</p>
-                                            <p className="text-xs text-slate-400">{entry.balls} balls</p>
+                                            <p className="text-xs text-slate-400 truncate" title={entry.bowlerName}>{entry.bowlerName}</p>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-black/40 backdrop-blur-xl rounded-3xl border border-white/10 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <p className="text-sm uppercase tracking-wider text-slate-300">Wagon Wheel</p>
-                                <p className="text-xs text-slate-500">Scoring shot map</p>
-                            </div>
-
-                            <svg viewBox="0 0 100 100" className="w-full max-w-xs mx-auto">
-                                <circle cx="50" cy="50" r="40" fill="none" stroke="#334155" strokeWidth="0.8" />
-                                <circle cx="50" cy="50" r="30" fill="none" stroke="#334155" strokeWidth="0.7" />
-                                <circle cx="50" cy="50" r="20" fill="none" stroke="#334155" strokeWidth="0.6" />
-                                <line x1="50" y1="10" x2="50" y2="90" stroke="#334155" strokeWidth="0.6" />
-                                <line x1="10" y1="50" x2="90" y2="50" stroke="#334155" strokeWidth="0.6" />
-                                <line x1="21" y1="21" x2="79" y2="79" stroke="#334155" strokeWidth="0.5" />
-                                <line x1="79" y1="21" x2="21" y2="79" stroke="#334155" strokeWidth="0.5" />
-
-                                {wagonShots.map((shot, idx) => (
-                                    <g key={`${shot.label}-${idx}`}>
-                                        <line x1="50" y1="50" x2={shot.x} y2={shot.y} stroke={runColor(shot.runs)} strokeOpacity="0.35" strokeWidth="0.4" />
-                                        <circle cx={shot.x} cy={shot.y} r={shot.runs >= 4 ? 1.4 : 1.1} fill={runColor(shot.runs)}>
-                                            <title>{`${shot.label}: ${shot.runs} run${shot.runs > 1 ? 's' : ''}`}</title>
-                                        </circle>
-                                    </g>
-                                ))}
-                            </svg>
-
-                            <div className="mt-5 space-y-2">
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="text-slate-400">Scoring shots</span>
-                                    <span className="font-semibold text-white">{wagonShots.length}</span>
+                        <div className="space-y-6">
+                            <div className="bg-black/40 backdrop-blur-xl rounded-3xl border border-white/10 p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <p className="text-sm uppercase tracking-wider text-slate-300">Wagon Wheel</p>
+                                    <p className="text-xs text-slate-500">Scoring shot map</p>
                                 </div>
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="text-slate-400">Boundaries</span>
-                                    <span className="font-semibold text-white">{matchLog.filter((e) => e.runs === 4 || e.runs === 6).length}</span>
-                                </div>
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="text-slate-400">Dots</span>
-                                    <span className="font-semibold text-white">{matchLog.filter((e) => !e.isWicket && e.runs === 0).length}</span>
-                                </div>
-                            </div>
 
-                            <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
-                                {[1, 2, 4, 6].map((r) => (
-                                    <div key={r} className="flex items-center gap-2 text-slate-300">
-                                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: runColor(r) }}></span>
-                                        {r}s
+                                <svg viewBox="0 0 100 100" className="w-full max-w-xs mx-auto">
+                                    <circle cx="50" cy="50" r="40" fill="none" stroke="#334155" strokeWidth="0.8" />
+                                    <circle cx="50" cy="50" r="30" fill="none" stroke="#334155" strokeWidth="0.7" />
+                                    <circle cx="50" cy="50" r="20" fill="none" stroke="#334155" strokeWidth="0.6" />
+                                    <line x1="50" y1="10" x2="50" y2="90" stroke="#334155" strokeWidth="0.6" />
+                                    <line x1="10" y1="50" x2="90" y2="50" stroke="#334155" strokeWidth="0.6" />
+                                    <line x1="21" y1="21" x2="79" y2="79" stroke="#334155" strokeWidth="0.5" />
+                                    <line x1="79" y1="21" x2="21" y2="79" stroke="#334155" strokeWidth="0.5" />
+
+                                    {wagonShots.map((shot, idx) => (
+                                        <g key={`${shot.label}-${idx}`}>
+                                            <line x1="50" y1="50" x2={shot.x} y2={shot.y} stroke={runColor(shot.runs)} strokeOpacity="0.35" strokeWidth="0.4" />
+                                            <circle cx={shot.x} cy={shot.y} r={shot.runs >= 4 ? 1.4 : 1.1} fill={runColor(shot.runs)}>
+                                                <title>{`${shot.label}: ${shot.runs} run${shot.runs > 1 ? 's' : ''}`}</title>
+                                            </circle>
+                                        </g>
+                                    ))}
+                                </svg>
+
+                                <div className="mt-5 space-y-2">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">Scoring shots</span>
+                                        <span className="font-semibold text-white">{wagonShots.length}</span>
                                     </div>
-                                ))}
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">Boundaries</span>
+                                        <span className="font-semibold text-white">{matchLog.filter((e) => e.runs === 4 || e.runs === 6).length}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">Dots</span>
+                                        <span className="font-semibold text-white">{matchLog.filter((e) => !e.isWicket && e.runs === 0).length}</span>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+                                    {[1, 2, 4, 6].map((r) => (
+                                        <div key={r} className="flex items-center gap-2 text-slate-300">
+                                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: runColor(r) }}></span>
+                                            {r}s
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="bg-black/40 backdrop-blur-xl rounded-3xl border border-white/10 p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <p className="text-sm uppercase tracking-wider text-slate-300">Auto Batting Order</p>
+                                    <p className="text-xs text-slate-500">Top 11 by strike rate</p>
+                                </div>
+                                <div className="mb-4 border border-white/10 rounded-xl p-3 bg-slate-900/60">
+                                    <p className="text-xs uppercase text-slate-500 mb-2">Bowling Attack Rotation Pool</p>
+                                    <p className="text-xs text-slate-300">
+                                        {bowlingAttack.length
+                                            ? bowlingAttack.map((p) => `${p.name} (Eco ${Number(p?.stats?.economy || 0).toFixed(1)})`).join(' | ')
+                                            : 'No bowling unit selected yet'}
+                                    </p>
+                                </div>
+                                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                                    {battingLineup.map((p, idx) => (
+                                        <div key={getPlayerId(p)} className="flex items-center justify-between text-sm bg-slate-900/60 border border-white/10 rounded-lg px-3 py-2">
+                                            <span className="text-slate-300">{idx + 1}. {p.name}</span>
+                                            <span className="text-slate-500">SR {Number(p?.stats?.strikeRate || 0).toFixed(0)}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
