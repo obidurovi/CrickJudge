@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Line } from 'recharts';
 
 const TOTAL_OVERS = 20;
 const TOTAL_BALLS = TOTAL_OVERS * 6;
@@ -530,11 +530,16 @@ const MatchSimulator = () => {
     const powerplayActive = ballsFaced < 36;
     const inningsComplete = ballsFaced >= TOTAL_BALLS || wickets >= 10;
     const recentBalls = matchLog.slice(-18);
-    const overRunTrend = overSummary.map((entry) => ({
-        over: `O${entry.over}`,
-        runs: entry.runs,
-        wickets: entry.wickets
-    }));
+    const overRunTrend = overSummary.reduce((acc, entry) => {
+        const previousCumulative = acc.length ? acc[acc.length - 1].cumulative : 0;
+        acc.push({
+            over: `O${entry.over}`,
+            runs: entry.runs,
+            wickets: entry.wickets,
+            cumulative: previousCumulative + entry.runs
+        });
+        return acc;
+    }, []);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200">
@@ -722,12 +727,20 @@ const MatchSimulator = () => {
                                                 contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '0.5rem' }}
                                                 labelStyle={{ color: '#e2e8f0', fontWeight: 600 }}
                                                 itemStyle={{ color: '#cbd5e1' }}
-                                                formatter={(value, name, payload) => {
-                                                    const wicketText = payload?.payload?.wickets ? ` | Wkts ${payload.payload.wickets}` : '';
-                                                    return [`Runs ${value}${wicketText}`, ''];
+                                                labelFormatter={(value) => `Over ${String(value).replace('O', '')}`}
+                                                formatter={(value, name, dataPoint) => {
+                                                    if (name === 'runs') {
+                                                        const wicketText = dataPoint?.payload?.wickets ? ` | Wkts ${dataPoint.payload.wickets}` : '';
+                                                        return [`${value}${wicketText}`, 'Runs'];
+                                                    }
+                                                    if (name === 'cumulative') {
+                                                        return [value, 'Cumulative'];
+                                                    }
+                                                    return [value, name];
                                                 }}
                                             />
                                             <Bar dataKey="runs" fill="#f97316" radius={[4, 4, 0, 0]} />
+                                            <Line type="monotone" dataKey="cumulative" stroke="#38bdf8" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
