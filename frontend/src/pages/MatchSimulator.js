@@ -155,6 +155,7 @@ const MatchSimulator = () => {
     const [clearLastSimulation, { isLoading: isClearingSimulation }] = useClearLastSimulationMutation();
     const [fetchLastSimulation, { isFetching: isRestoringSimulation }] = useLazyGetLastSimulationQuery();
     const lastAutoSavedKeyRef = useRef('');
+    const runtimeResumeAvailable = !!runtimeSnapshot?.hasData;
 
     const cancelledRef = useRef(false);
 
@@ -738,8 +739,7 @@ const MatchSimulator = () => {
         if (loadingPlayers) return;
 
         if (runtimeSnapshot?.hasData) {
-            const restored = applyRuntimeSnapshot(runtimeSnapshot);
-            if (restored) setRestoreStatus('Runtime restored from Redux');
+            setRestoreStatus('Runtime snapshot available. Click Resume Runtime.');
         }
 
         setRuntimeHydrated(true);
@@ -762,6 +762,7 @@ const MatchSimulator = () => {
 
         const hasActiveState = matchLog.length > 0 || gameOver || isPlaying;
         if (!hasActiveState) {
+            if (runtimeSnapshot?.hasData) return;
             dispatch(clearRuntimeSnapshot());
             return;
         }
@@ -814,8 +815,25 @@ const MatchSimulator = () => {
         battingStats,
         fallOfWickets,
         currentPartnership,
-        bestPartnership
+        bestPartnership,
+        runtimeSnapshot
     ]);
+
+    const resumeRuntimeSnapshot = () => {
+        if (!runtimeSnapshot?.hasData) {
+            setRestoreStatus('No runtime snapshot available');
+            setTimeout(() => setRestoreStatus(''), 1800);
+            return;
+        }
+
+        const restored = applyRuntimeSnapshot(runtimeSnapshot);
+        if (restored) {
+            setRestoreStatus('Runtime resumed from Redux');
+        } else {
+            setRestoreStatus('Runtime snapshot is invalid');
+        }
+        setTimeout(() => setRestoreStatus(''), 1800);
+    };
 
     const exportAsJson = () => {
         const payload = createExportPayload();
@@ -1026,6 +1044,13 @@ const MatchSimulator = () => {
 
                     <div className="mt-4 flex items-center justify-center gap-3">
                         <button
+                            onClick={resumeRuntimeSnapshot}
+                            disabled={!runtimeResumeAvailable}
+                            className="px-4 py-2 rounded-lg text-sm font-semibold border border-indigo-400/40 text-indigo-300 hover:bg-indigo-500/10 disabled:text-slate-500 disabled:border-slate-700 disabled:hover:bg-transparent"
+                        >
+                            Resume Runtime
+                        </button>
+                        <button
                             onClick={exportAsJson}
                             disabled={matchLog.length === 0}
                             className="px-4 py-2 rounded-lg text-sm font-semibold border border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/10 disabled:text-slate-500 disabled:border-slate-700 disabled:hover:bg-transparent"
@@ -1070,6 +1095,9 @@ const MatchSimulator = () => {
                         <p className={`mt-1 text-xs ${restoreStatus.toLowerCase().includes('failed') || restoreStatus.toLowerCase().includes('invalid') ? 'text-rose-400' : 'text-amber-300'}`}>
                             {restoreStatus}
                         </p>
+                    )}
+                    {runtimeResumeAvailable && (
+                        <p className="mt-1 text-xs text-indigo-300">In-memory runtime is available for quick resume.</p>
                     )}
                     {isSavingSimulation && (
                         <p className="mt-1 text-xs text-slate-400">Auto-saving latest simulation...</p>
