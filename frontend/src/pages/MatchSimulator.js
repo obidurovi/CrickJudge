@@ -118,6 +118,8 @@ const MatchSimulator = () => {
     const [bowlingSpells, setBowlingSpells] = useState([]);
     const [battingStats, setBattingStats] = useState([]);
     const [fallOfWickets, setFallOfWickets] = useState([]);
+    const [currentPartnership, setCurrentPartnership] = useState({ runs: 0, balls: 0, batters: '-' });
+    const [bestPartnership, setBestPartnership] = useState({ runs: 0, balls: 0, batters: '-', wicketAt: '-' });
 
     const cancelledRef = useRef(false);
 
@@ -236,6 +238,8 @@ const MatchSimulator = () => {
         setNextBatter(null);
         setBattingStats([]);
         setFallOfWickets([]);
+        setCurrentPartnership({ runs: 0, balls: 0, batters: '-' });
+        setBestPartnership({ runs: 0, balls: 0, batters: '-', wicketAt: '-' });
         setGameOver(false);
     };
 
@@ -263,6 +267,14 @@ const MatchSimulator = () => {
         let currentBalls = 0;
         let ppRuns = 0;
         let ppWickets = 0;
+        let partnershipRuns = 0;
+        let partnershipBalls = 0;
+        let partnershipBatters = `${striker.name} & ${nonStriker.name}`;
+
+        let bestPartnershipRuns = 0;
+        let bestPartnershipBalls = 0;
+        let bestPartnershipBatters = '-';
+        let bestPartnershipWicketAt = '-';
 
         const spellById = {};
         const log = [];
@@ -327,6 +339,7 @@ const MatchSimulator = () => {
         setCurrentPair({ striker, nonStriker });
         setNextBatter(lineup[nextBatterIndex] || null);
         setBattingStats(snapshotBatting());
+        setCurrentPartnership({ runs: partnershipRuns, balls: partnershipBalls, batters: partnershipBatters });
 
         for (let ballNumber = 1; ballNumber <= TOTAL_BALLS && currentWickets < 10; ballNumber++) {
             const overNumber = Math.floor((ballNumber - 1) / 6) + 1;
@@ -350,6 +363,7 @@ const MatchSimulator = () => {
 
             const event = simulateDelivery({ ballNumber, striker, bowler: overBowler });
             currentBalls += 1;
+            partnershipBalls += 1;
 
             const overIndex = Math.floor((ballNumber - 1) / 6);
             if (!overs[overIndex]) {
@@ -379,6 +393,13 @@ const MatchSimulator = () => {
                 overs[overIndex].wickets += 1;
                 if (event.isPowerplay) ppWickets += 1;
 
+                if (partnershipRuns > bestPartnershipRuns || (partnershipRuns === bestPartnershipRuns && partnershipBalls > bestPartnershipBalls)) {
+                    bestPartnershipRuns = partnershipRuns;
+                    bestPartnershipBalls = partnershipBalls;
+                    bestPartnershipBatters = partnershipBatters;
+                    bestPartnershipWicketAt = `${currentRuns}-${currentWickets}`;
+                }
+
                 if (strikerId && battingMap[strikerId]) {
                     battingMap[strikerId].isOut = true;
                     battingMap[strikerId].dismissal = `b ${overBowler?.name || 'Unknown'}`;
@@ -398,10 +419,17 @@ const MatchSimulator = () => {
                     if (newStrikerId && battingMap[newStrikerId]) battingMap[newStrikerId].entered = true;
                     nextBatterIndex += 1;
                 }
+
+                partnershipRuns = 0;
+                partnershipBalls = 0;
+                if (striker && nonStriker) {
+                    partnershipBatters = `${striker.name} & ${nonStriker.name}`;
+                }
             } else {
                 currentRuns += event.runs;
                 overs[overIndex].runs += event.runs;
                 if (event.isPowerplay) ppRuns += event.runs;
+                partnershipRuns += event.runs;
 
                 if (strikerId && battingMap[strikerId]) {
                     battingMap[strikerId].runs += event.runs;
@@ -456,6 +484,13 @@ const MatchSimulator = () => {
             setNextBatter(lineup[nextBatterIndex] || null);
             setBattingStats(snapshotBatting());
             setFallOfWickets([...fowLog]);
+            setCurrentPartnership({ runs: partnershipRuns, balls: partnershipBalls, batters: partnershipBatters });
+            setBestPartnership({
+                runs: bestPartnershipRuns,
+                balls: bestPartnershipBalls,
+                batters: bestPartnershipBatters,
+                wicketAt: bestPartnershipWicketAt
+            });
             setBowlingSpells(
                 Object.keys(spellById).map((id) => {
                     const p = attack.find((x) => getPlayerId(x) === id);
@@ -469,8 +504,21 @@ const MatchSimulator = () => {
         }
 
         syncBattingStatuses();
+        if (partnershipRuns > bestPartnershipRuns || (partnershipRuns === bestPartnershipRuns && partnershipBalls > bestPartnershipBalls)) {
+            bestPartnershipRuns = partnershipRuns;
+            bestPartnershipBalls = partnershipBalls;
+            bestPartnershipBatters = partnershipBatters;
+            bestPartnershipWicketAt = 'Unbroken';
+        }
         setBattingStats(snapshotBatting(true));
         setFallOfWickets([...fowLog]);
+        setCurrentPartnership({ runs: partnershipRuns, balls: partnershipBalls, batters: partnershipBatters });
+        setBestPartnership({
+            runs: bestPartnershipRuns,
+            balls: bestPartnershipBalls,
+            batters: bestPartnershipBatters,
+            wicketAt: bestPartnershipWicketAt
+        });
         setIsPlaying(false);
         setGameOver(true);
     };
@@ -611,6 +659,20 @@ const MatchSimulator = () => {
                                                 ? bowlingSpells.map((s) => `${s.name} (${s.overs})`).join(' | ')
                                                 : 'No completed overs yet'}
                                         </p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-xs text-slate-500 uppercase">Current Partnership</p>
+                                        <p className="text-lg font-semibold text-white">{currentPartnership.runs} ({currentPartnership.balls})</p>
+                                        <p className="text-xs text-slate-400 truncate" title={currentPartnership.batters}>{currentPartnership.batters}</p>
+                                    </div>
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-xs text-slate-500 uppercase">Best Partnership</p>
+                                        <p className="text-lg font-semibold text-white">{bestPartnership.runs} ({bestPartnership.balls})</p>
+                                        <p className="text-xs text-slate-400 truncate" title={bestPartnership.batters}>{bestPartnership.batters}</p>
+                                        <p className="text-[11px] text-slate-500 mt-1">At: {bestPartnership.wicketAt}</p>
                                     </div>
                                 </div>
 
