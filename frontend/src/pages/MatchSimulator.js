@@ -13,6 +13,7 @@ import { setRuntimeSnapshot, clearRuntimeSnapshot } from '../store/simulationRun
 const TOTAL_OVERS = 20;
 const TOTAL_BALLS = TOTAL_OVERS * 6;
 const BALL_DELAY_MS = 180;
+const AUTO_RESUME_GAP_MS = 45 * 1000;
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -295,11 +296,19 @@ const MatchSimulator = () => {
                 scoreText: `${saved?.scoreboard?.runs ?? 0}/${saved?.scoreboard?.wickets ?? 0}`,
                 oversText: saved?.scoreboard?.overs || '0.0'
             } : null);
-            return available;
+            return {
+                available,
+                payload: available ? saved : null,
+                generatedAt: saved?.meta?.generatedAt || null
+            };
         } catch {
             setHasSavedSnapshot(false);
             setSavedSnapshotInfo(null);
-            return false;
+            return {
+                available: false,
+                payload: null,
+                generatedAt: null
+            };
         }
     }, [fetchLastSimulation]);
 
@@ -678,7 +687,7 @@ const MatchSimulator = () => {
         URL.revokeObjectURL(url);
     };
 
-    const applySimulationPayload = (payload) => {
+    const applySimulationPayload = useCallback((payload) => {
         if (!payload || !payload.scoreboard) return false;
 
         setIsPlaying(false);
@@ -730,7 +739,7 @@ const MatchSimulator = () => {
         }
 
         return true;
-    };
+    }, [players]);
 
     const applyRuntimeSnapshot = useCallback((snapshot) => {
         if (!snapshot?.hasData) return false;
@@ -774,7 +783,38 @@ const MatchSimulator = () => {
 
         (async () => {
             const runtimeAvailable = !!runtimeSnapshot?.hasData;
-            const savedAvailable = await checkSavedSnapshotAvailability();
+            const savedState = await checkSavedSnapshotAvailability();
+            const savedAvailable = savedState.available;
+
+            const runtimeUpdatedAtMs = runtimeAvailable && runtimeSnapshot?.runtimeUpdatedAt
+                ? Date.parse(runtimeSnapshot.runtimeUpdatedAt)
+                : NaN;
+            const savedUpdatedAtMs = savedAvailable && savedState.generatedAt
+                ? Date.parse(savedState.generatedAt)
+                : NaN;
+            const canAutoCompare = runtimeAvailable
+                && savedAvailable
+                && Number.isFinite(runtimeUpdatedAtMs)
+                && Number.isFinite(savedUpdatedAtMs);
+            const recencyGapMs = canAutoCompare ? Math.abs(runtimeUpdatedAtMs - savedUpdatedAtMs) : 0;
+
+            if (canAutoCompare && recencyGapMs >= AUTO_RESUME_GAP_MS) {
+                if (runtimeUpdatedAtMs >= savedUpdatedAtMs) {
+                    const restored = applyRuntimeSnapshot(runtimeSnapshot);
+                    if (restored) {
+                        setRestoreStatus('Auto-resumed newer runtime snapshot');
+                        setRuntimeHydrated(true);
+                        return;
+                    }
+                } else {
+                    const restored = applySimulationPayload(savedState.payload);
+                    if (restored) {
+                        setRestoreStatus('Auto-restored newer saved snapshot');
+                        setRuntimeHydrated(true);
+                        return;
+                    }
+                }
+            }
 
             if (runtimeAvailable && savedAvailable) {
                 setRestoreStatus('Choose runtime source to continue');
@@ -788,7 +828,14 @@ const MatchSimulator = () => {
             setRuntimeHydrated(true);
         })();
 
-    }, [runtimeHydrated, loadingPlayers, runtimeSnapshot, checkSavedSnapshotAvailability]);
+    }, [
+        runtimeHydrated,
+        loadingPlayers,
+        runtimeSnapshot,
+        checkSavedSnapshotAvailability,
+        applyRuntimeSnapshot,
+        applySimulationPayload
+    ]);
 
     useEffect(() => {
         if (!gameOver || !matchLog.length) return;
