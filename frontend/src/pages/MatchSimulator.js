@@ -600,6 +600,7 @@ const MatchSimulator = () => {
     const runtimeIsNewer = canCompareRecency && runtimeUpdatedAtMs > savedUpdatedAtMs;
     const savedIsNewer = canCompareRecency && savedUpdatedAtMs > runtimeUpdatedAtMs;
     const snapshotsSameAge = canCompareRecency && runtimeUpdatedAtMs === savedUpdatedAtMs;
+    const recommendedSource = runtimeIsNewer ? 'runtime' : (savedIsNewer ? 'saved' : (runtimeResumeAvailable ? 'runtime' : (hasSavedSnapshot ? 'saved' : null)));
     const recentBalls = matchLog.slice(-18);
     const overRunTrend = overSummary.reduce((acc, entry) => {
         const previousCumulative = acc.length ? acc[acc.length - 1].cumulative : 0;
@@ -998,12 +999,28 @@ const MatchSimulator = () => {
 
     const openSourceChooser = async () => {
         await checkSavedSnapshotAvailability();
+        setRestoreStatus('Newer source is highlighted. Use Recommended for fastest resume.');
         setIsSourceModalOpen(true);
     };
 
     const resumeRuntimeAndClose = () => {
         resumeRuntimeSnapshot();
         setIsSourceModalOpen(false);
+    };
+
+    const useRecommendedSource = async () => {
+        if (recommendedSource === 'saved') {
+            await restoreLastSimulation();
+            return;
+        }
+
+        if (recommendedSource === 'runtime') {
+            resumeRuntimeAndClose();
+            return;
+        }
+
+        setRestoreStatus('No recommended source available');
+        setTimeout(() => setRestoreStatus(''), 1800);
     };
 
     const exportAsCsv = () => {
@@ -1212,6 +1229,22 @@ const MatchSimulator = () => {
                             </div>
 
                             <div className="p-5 space-y-4">
+                                <div className="rounded-xl border border-slate-700/70 bg-slate-800/70 p-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <p className="text-xs text-slate-300">
+                                        {runtimeIsNewer && 'Recommended: Runtime snapshot is newer.'}
+                                        {savedIsNewer && 'Recommended: Saved snapshot is newer.'}
+                                        {snapshotsSameAge && 'Both snapshots are from the same time. Runtime is selected by default.'}
+                                        {!canCompareRecency && 'Choose the source you trust most. Use Runtime for speed or Saved for completed innings.'}
+                                    </p>
+                                    <button
+                                        onClick={useRecommendedSource}
+                                        disabled={!recommendedSource || isRestoringSimulation}
+                                        className="px-3 py-2 rounded-lg text-sm font-semibold border border-emerald-400/40 text-emerald-300 hover:bg-emerald-500/10 disabled:text-slate-500 disabled:border-slate-700"
+                                    >
+                                        {isRestoringSimulation && recommendedSource === 'saved' ? 'Restoring...' : 'Use Recommended'}
+                                    </button>
+                                </div>
+
                                 <div className={`rounded-xl border p-4 ${runtimeIsNewer ? 'border-emerald-400/40 bg-emerald-500/10 ring-1 ring-emerald-400/30' : 'border-indigo-400/20 bg-indigo-500/10'}`}>
                                     <div className="mb-2 flex items-center justify-between gap-2">
                                         <p className="text-xs uppercase text-indigo-300">Runtime Snapshot (Redux)</p>
