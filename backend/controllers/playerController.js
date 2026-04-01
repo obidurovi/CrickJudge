@@ -1,4 +1,5 @@
 const Player = require('../models/Player');
+const mongoose = require('mongoose');
 const cricketApi = require('../utils/cricketApi');
 const { syncPlayerFromApi } = require('../utils/playerSync');
 const { getTeamPlayers, crawlAllPlayers, syncTeamDetails, getSyncStatus, getAllTeams } = require('../utils/teamSync');
@@ -312,4 +313,46 @@ const getPlayerCountries = async (req, res) => {
     }
 };
 
-module.exports = { listPlayers, searchPlayers, getPlayerDetail, getPlayerCountries, getPlayersByTeam, getTeamsList, syncTeam, syncAll, getSyncStatusEndpoint };
+const getWatchlistPlayers = async (req, res) => {
+    try {
+        const raw = typeof req.query.ids === 'string' ? req.query.ids : '';
+        const ids = raw
+            .split(',')
+            .map((id) => id.trim())
+            .filter(Boolean)
+            .slice(0, 50);
+
+        if (!ids.length) {
+            return res.json({ players: [] });
+        }
+
+        const cacheKey = `cric:players:watchlist:${ids.join(',')}`;
+        const cached = await cache.getJSON(cacheKey);
+        if (cached) return res.json(cached);
+
+        const objectIds = ids
+            .filter((id) => mongoose.Types.ObjectId.isValid(id))
+            .map((id) => new mongoose.Types.ObjectId(id));
+
+        const players = await Player.find({
+            $or: [
+                { apiId: { $in: ids } },
+                { _id: { $in: objectIds } }
+            ]
+        });
+
+        const byApiId = new Map(players.filter((p) => p.apiId).map((p) => [String(p.apiId), p]));
+        const byDbId = new Map(players.map((p) => [String(p._id), p]));
+        const ordered = ids
+            .map((id) => byApiId.get(id) || byDbId.get(id))
+            .filter(Boolean);
+
+        const result = { players: ordered };
+        await cache.setJSON(cacheKey, result, 120);
+        return res.json(result);
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+module.exports = { listPlayers, searchPlayers, getPlayerDetail, getPlayerCountries, getPlayersByTeam, getTeamsList, syncTeam, syncAll, getSyncStatusEndpoint, getWatchlistPlayers };

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import PlayerCard from '../components/PlayerCard';
 import useSSE from '../hooks/useSSE';
+import { getPlayerWatchlistIds, getPlayerWatchlistId, isPlayerInWatchlist, togglePlayerWatchlistId } from '../utils/watchlist';
 
 const API = 'http://localhost:5000/api/players';
 
@@ -18,6 +19,8 @@ const Dashboard = () => {
     const [searching, setSearching] = useState(false);
     const [error, setError] = useState(null);
     const [notice, setNotice] = useState(null);
+    const [watchlistIds, setWatchlistIds] = useState(() => getPlayerWatchlistIds());
+    const [watchlistPlayers, setWatchlistPlayers] = useState([]);
 
     const fetchPlayers = useCallback(async (newOffset = 0, append = false) => {
         if (append) setLoadingMore(true);
@@ -49,6 +52,27 @@ const Dashboard = () => {
         }
     }, []);
 
+    const fetchWatchlistPlayers = useCallback(async (ids) => {
+        if (!ids.length) {
+            setWatchlistPlayers([]);
+            return;
+        }
+
+        try {
+            const { data } = await axios.get(`http://localhost:5000/api/players/watchlist?ids=${encodeURIComponent(ids.join(','))}`);
+            setWatchlistPlayers(Array.isArray(data?.players) ? data.players : []);
+        } catch {
+            setWatchlistPlayers([]);
+        }
+    }, []);
+
+    const handleToggleWatchlist = useCallback((player) => {
+        const watchlistId = getPlayerWatchlistId(player);
+        if (!watchlistId) return;
+        const updated = togglePlayerWatchlistId(watchlistId);
+        setWatchlistIds(updated);
+    }, []);
+
     const handleSearch = useCallback(async () => {
         if (!search || search.length < 2) {
             setSearchResults(null);
@@ -68,6 +92,16 @@ const Dashboard = () => {
     useEffect(() => {
         fetchPlayers(0);
     }, [fetchPlayers]);
+
+    useEffect(() => {
+        fetchWatchlistPlayers(watchlistIds);
+    }, [watchlistIds, fetchWatchlistPlayers]);
+
+    useEffect(() => {
+        const syncWatchlistAcrossTabs = () => setWatchlistIds(getPlayerWatchlistIds());
+        window.addEventListener('storage', syncWatchlistAcrossTabs);
+        return () => window.removeEventListener('storage', syncWatchlistAcrossTabs);
+    }, []);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -105,12 +139,18 @@ const Dashboard = () => {
             setSyncProgress(null);
             if (debounceRef.current) clearTimeout(debounceRef.current);
             fetchPlayers(0);
+            if (watchlistIds.length) {
+                fetchWatchlistPlayers(watchlistIds);
+            }
         },
         'dashboard:crawlProgress': (data) => {
             setSyncProgress(prev => ({ ...prev, playersSaved: data.playersSaved, offset: data.offset, totalRows: data.totalRows }));
             debouncedFetchPlayers();
+            if (watchlistIds.length) {
+                fetchWatchlistPlayers(watchlistIds);
+            }
         }
-    }), [fetchPlayers, debouncedFetchPlayers]);
+    }), [fetchPlayers, debouncedFetchPlayers, watchlistIds, fetchWatchlistPlayers]);
 
     const { connected: sseConnected } = useSSE('/dashboard', sseHandlers);
 
@@ -155,6 +195,66 @@ const Dashboard = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
                 <section>
+                    <div className="mb-10 bg-white/5 border border-white/10 rounded-3xl p-6">
+                        <div className="flex items-center justify-between gap-3 flex-wrap mb-5">
+                            <div>
+                                <h2 className="text-2xl font-bold text-white">My Watchlist</h2>
+                                <p className="text-sm text-slate-400 mt-1">Personalized view for your tracked players with live stat updates.</p>
+                            </div>
+                            <span className="px-3 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/30 rounded text-xs font-semibold uppercase tracking-wider">
+                                {watchlistPlayers.length} Tracked
+                            </span>
+                        </div>
+
+                        {watchlistPlayers.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed border-white/15 bg-slate-900/40 px-4 py-6 text-center">
+                                <p className="text-slate-300 font-medium">No players in your watchlist yet.</p>
+                                <p className="text-slate-500 text-sm mt-1">Use the bookmark icon on any player card to start tracking.</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                                    <div className="bg-black/20 p-3 rounded-xl border border-white/10">
+                                        <p className="text-xs text-slate-400 uppercase">Total Runs</p>
+                                        <p className="text-xl font-bold text-white">{watchlistPlayers.reduce((sum, p) => sum + (Number(p?.stats?.runs) || 0), 0).toLocaleString()}</p>
+                                    </div>
+                                    <div className="bg-black/20 p-3 rounded-xl border border-white/10">
+                                        <p className="text-xs text-slate-400 uppercase">Total Wickets</p>
+                                        <p className="text-xl font-bold text-white">{watchlistPlayers.reduce((sum, p) => sum + (Number(p?.stats?.wickets) || 0), 0).toLocaleString()}</p>
+                                    </div>
+                                    <div className="bg-black/20 p-3 rounded-xl border border-white/10">
+                                        <p className="text-xs text-slate-400 uppercase">Avg Strike Rate</p>
+                                        <p className="text-xl font-bold text-white">
+                                            {watchlistPlayers.length
+                                                ? (watchlistPlayers.reduce((sum, p) => sum + (Number(p?.stats?.strikeRate) || 0), 0) / watchlistPlayers.length).toFixed(1)
+                                                : '0.0'}
+                                        </p>
+                                    </div>
+                                    <div className="bg-black/20 p-3 rounded-xl border border-white/10">
+                                        <p className="text-xs text-slate-400 uppercase">Avg Batting Avg</p>
+                                        <p className="text-xl font-bold text-white">
+                                            {watchlistPlayers.length
+                                                ? (watchlistPlayers.reduce((sum, p) => sum + (Number(p?.stats?.average) || 0), 0) / watchlistPlayers.length).toFixed(1)
+                                                : '0.0'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'>
+                                    {watchlistPlayers.map((player, idx) => (
+                                        <div key={`watch-${player.apiId || player._id || idx}`} className="transform transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-amber-900/20">
+                                            <PlayerCard
+                                                player={player}
+                                                watchlistEnabled
+                                                isWatchlisted={isPlayerInWatchlist(getPlayerWatchlistId(player), watchlistIds)}
+                                                onToggleWatchlist={handleToggleWatchlist}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+
                     <div className="mb-8">
                         <h2 className="text-3xl font-bold text-white mb-2">All Players</h2>
                         <div className="flex items-center gap-3 mb-6 flex-wrap">
@@ -239,7 +339,12 @@ const Dashboard = () => {
                             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'>
                                 {displayPlayers.map((player, idx) => (
                                     <div key={player.apiId || player._id || idx} className="transform transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-900/20">
-                                        <PlayerCard player={player} />
+                                        <PlayerCard
+                                            player={player}
+                                            watchlistEnabled
+                                            isWatchlisted={isPlayerInWatchlist(getPlayerWatchlistId(player), watchlistIds)}
+                                            onToggleWatchlist={handleToggleWatchlist}
+                                        />
                                     </div>
                                 ))}
                             </div>

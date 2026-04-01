@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import useSSE from '../hooks/useSSE';
+import { getPlayerWatchlistId, getPlayerWatchlistIds, isPlayerInWatchlist, togglePlayerWatchlistId } from '../utils/watchlist';
 
 const API = 'http://localhost:5000/api/players';
 
@@ -41,6 +42,7 @@ const PlayerDetail = () => {
   const [player, setPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [watchlistIds, setWatchlistIds] = useState(() => getPlayerWatchlistIds());
 
   useEffect(() => {
     const fetchPlayer = async () => {
@@ -92,6 +94,14 @@ const PlayerDetail = () => {
 
   const stats = player.stats || {};
   const detailed = player.detailedStats || {};
+  const watchlistId = getPlayerWatchlistId(player);
+  const isWatchlisted = isPlayerInWatchlist(watchlistId, watchlistIds);
+
+  const toggleWatchlist = () => {
+    if (!watchlistId) return;
+    const updated = togglePlayerWatchlistId(watchlistId);
+    setWatchlistIds(updated);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-slate-200 p-6 lg:p-10">
@@ -115,6 +125,16 @@ const PlayerDetail = () => {
             <div className="flex-1">
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-3xl lg:text-4xl font-bold text-white">{player.name}</h1>
+                <button
+                  type="button"
+                  onClick={toggleWatchlist}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${isWatchlisted ? 'bg-amber-500/20 border-amber-400/40 text-amber-300' : 'bg-slate-800/60 border-slate-600 text-slate-300 hover:text-amber-300 hover:border-amber-400/40'}`}
+                >
+                  <svg className="w-3.5 h-3.5" fill={isWatchlisted ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3l14 0l0 18l-7-5l-7 5z"></path>
+                  </svg>
+                  {isWatchlisted ? 'Watching' : 'Watch'}
+                </button>
                 {player.source === 'api' && (
                   <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-xs font-semibold flex items-center gap-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${sseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`}></span>

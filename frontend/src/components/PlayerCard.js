@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const PlayerCard = ({ player }) => {
+const PlayerCard = ({ player, watchlistEnabled = false, isWatchlisted = false, onToggleWatchlist }) => {
   const roleColor = {
     'Batsman': 'bg-blue-500/20 text-blue-200 border-blue-500/30',
     'Batter': 'bg-blue-500/20 text-blue-200 border-blue-500/30',
@@ -17,6 +17,15 @@ const PlayerCard = ({ player }) => {
   const stats = player.stats || {};
   const isBasic = player._isBasic;
   const hasDetailLink = player.apiId || player._id;
+  const watchlistLabel = isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist';
+
+  const handleWatchlistToggle = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof onToggleWatchlist === 'function') {
+      onToggleWatchlist(player);
+    }
+  };
 
   const CardWrapper = ({ children }) => {
     if (hasDetailLink) {
@@ -47,9 +56,24 @@ const PlayerCard = ({ player }) => {
                   </p>
               </div>
           </div>
-          {player.source === 'api' && (
-            <span className="w-2 h-2 bg-emerald-500 rounded-full flex-shrink-0 mt-2" title="Live API Data"></span>
-          )}
+          <div className="flex items-center gap-2">
+            {player.source === 'api' && (
+              <span className="w-2 h-2 bg-emerald-500 rounded-full flex-shrink-0 mt-2" title="Live API Data"></span>
+            )}
+            {watchlistEnabled && (
+              <button
+                type="button"
+                onClick={handleWatchlistToggle}
+                className={`h-8 w-8 rounded-full border flex items-center justify-center transition-colors ${isWatchlisted ? 'border-amber-400/60 bg-amber-500/20 text-amber-300' : 'border-slate-600 bg-slate-800/60 text-slate-400 hover:border-amber-400/40 hover:text-amber-300'}`}
+                title={watchlistLabel}
+                aria-label={watchlistLabel}
+              >
+                <svg className="w-4 h-4" fill={isWatchlisted ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3l14 0l0 18l-7-5l-7 5z"></path>
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
         
         <div className='mb-4 flex items-center gap-2'>
