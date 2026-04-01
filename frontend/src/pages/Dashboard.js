@@ -32,6 +32,8 @@ const Dashboard = () => {
     const [freeTierMode, setFreeTierMode] = useState(null);
     const [freeTierLoading, setFreeTierLoading] = useState(false);
     const [freeTierStatus, setFreeTierStatus] = useState('');
+    const [manualSyncLoading, setManualSyncLoading] = useState(false);
+    const [manualSyncStatus, setManualSyncStatus] = useState('');
     const [apiHealth, setApiHealth] = useState({
         apiTemporarilyBlocked: false,
         blockedRemainingSeconds: 0
@@ -115,6 +117,27 @@ const Dashboard = () => {
             setFreeTierLoading(false);
         }
     }, [freeTierMode, adminModeKey]);
+
+    const triggerManualSync = useCallback(async () => {
+        if (apiHealth.apiTemporarilyBlocked) {
+            setManualSyncStatus('CricAPI is cooling down. Please wait for timer to finish.');
+            return;
+        }
+
+        setManualSyncLoading(true);
+        setManualSyncStatus('');
+        try {
+            const { data } = await axios.post('http://localhost:5000/api/players/sync-all?pages=1');
+            setManualSyncStatus(data?.message || 'Manual sync started (1 page).');
+            fetchPlayers(0);
+            fetchApiHealth();
+        } catch (err) {
+            setManualSyncStatus(err?.response?.data?.message || 'Manual sync failed');
+            fetchApiHealth();
+        } finally {
+            setManualSyncLoading(false);
+        }
+    }, [apiHealth.apiTemporarilyBlocked, fetchPlayers, fetchApiHealth]);
 
     const fetchWatchlistPlayers = useCallback(async (ids) => {
         if (!ids.length) {
@@ -317,8 +340,16 @@ const Dashboard = () => {
                             >
                                 Refresh Status
                             </button>
+                            <button
+                                onClick={triggerManualSync}
+                                disabled={manualSyncLoading || apiHealth.apiTemporarilyBlocked}
+                                className="px-4 py-2 rounded-lg text-sm font-semibold border border-emerald-400/40 text-emerald-300 hover:bg-emerald-500/10 disabled:text-slate-500 disabled:border-slate-700"
+                            >
+                                {manualSyncLoading ? 'Syncing 1 page...' : 'Manual Sync (1 page / 25 players)'}
+                            </button>
                         </div>
                         {freeTierStatus && <p className="mt-3 text-xs text-slate-300">{freeTierStatus}</p>}
+                        {manualSyncStatus && <p className="mt-2 text-xs text-slate-300">{manualSyncStatus}</p>}
                         {apiHealth.apiTemporarilyBlocked && (
                             <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
                                 <p className="text-xs text-amber-300 font-medium">
