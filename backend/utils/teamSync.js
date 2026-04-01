@@ -158,7 +158,7 @@ const crawlAllPlayers = async (options = {}) => {
 
             } catch (err) {
                 const msg = err.message || '';
-                if (msg.includes('hits') || msg.includes('limit') || msg.includes('Block')) {
+                if (msg.includes('API_TEMP_BLOCKED') || msg.includes('hits') || msg.includes('limit') || msg.includes('Block')) {
                     console.log(`[TeamSync] Rate limit hit at offset ${offset}. Pausing crawl. Will resume later.`);
                     globalSyncState.errors.push({ offset, error: 'Rate limited', time: Date.now() });
                     break; // Stop but don't reset offset — we'll resume here next time

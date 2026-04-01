@@ -2,7 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import useSSE from '../hooks/useSSE';
-import { getPlayerWatchlistId, getPlayerWatchlistIds, isPlayerInWatchlist, togglePlayerWatchlistId } from '../utils/watchlist';
+import {
+  getPlayerWatchlistId,
+  getPlayerWatchlistIds,
+  isPlayerInWatchlist,
+  togglePlayerWatchlistId,
+  fetchRemoteWatchlistIds,
+  saveRemoteWatchlistIds
+} from '../utils/watchlist';
 
 const API = 'http://localhost:5000/api/players';
 
@@ -68,6 +75,19 @@ const PlayerDetail = () => {
 
   const { connected: sseConnected } = useSSE(`/player/${apiId}`, sseHandlers);
 
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const remoteIds = await fetchRemoteWatchlistIds();
+      if (active) {
+        setWatchlistIds(remoteIds);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center">
@@ -101,6 +121,7 @@ const PlayerDetail = () => {
     if (!watchlistId) return;
     const updated = togglePlayerWatchlistId(watchlistId);
     setWatchlistIds(updated);
+    saveRemoteWatchlistIds(updated);
   };
 
   return (

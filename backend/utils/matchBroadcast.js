@@ -3,6 +3,7 @@ const { broadcast } = require('./sseManager');
 
 let broadcastInterval = null;
 let lastMatchData = null;
+let lastBlockedLogAt = 0;
 
 const BROADCAST_INTERVAL = 30000; // 30 seconds
 
@@ -23,6 +24,14 @@ const fetchAndBroadcast = async () => {
             console.log(`[MatchBroadcast] Broadcasted ${matches.length} matches`);
         }
     } catch (err) {
+        if (err.message === 'API_TEMP_BLOCKED') {
+            const now = Date.now();
+            if (now - lastBlockedLogAt > 60 * 1000) {
+                lastBlockedLogAt = now;
+                console.log('[MatchBroadcast] CricAPI temporarily blocked. Serving cached data only until block window expires.');
+            }
+            return;
+        }
         console.error('[MatchBroadcast] Error fetching matches:', err.message);
     }
 };

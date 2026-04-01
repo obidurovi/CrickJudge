@@ -3,7 +3,14 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import PlayerCard from '../components/PlayerCard';
 import useSSE from '../hooks/useSSE';
-import { getPlayerWatchlistIds, getPlayerWatchlistId, isPlayerInWatchlist, togglePlayerWatchlistId } from '../utils/watchlist';
+import {
+    getPlayerWatchlistIds,
+    getPlayerWatchlistId,
+    isPlayerInWatchlist,
+    togglePlayerWatchlistId,
+    fetchRemoteWatchlistIds,
+    saveRemoteWatchlistIds
+} from '../utils/watchlist';
 
 const WatchlistDashboard = () => {
     const [watchlistIds, setWatchlistIds] = useState(() => getPlayerWatchlistIds());
@@ -33,6 +40,19 @@ const WatchlistDashboard = () => {
     }, [watchlistIds, fetchTrackedPlayers]);
 
     useEffect(() => {
+        let active = true;
+        (async () => {
+            const remoteIds = await fetchRemoteWatchlistIds();
+            if (active) {
+                setWatchlistIds(remoteIds);
+            }
+        })();
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    useEffect(() => {
         const syncWatchlistAcrossTabs = () => setWatchlistIds(getPlayerWatchlistIds());
         window.addEventListener('storage', syncWatchlistAcrossTabs);
         return () => window.removeEventListener('storage', syncWatchlistAcrossTabs);
@@ -43,6 +63,7 @@ const WatchlistDashboard = () => {
         if (!watchlistId) return;
         const updated = togglePlayerWatchlistId(watchlistId);
         setWatchlistIds(updated);
+        saveRemoteWatchlistIds(updated);
     };
 
     const sseHandlers = useMemo(() => ({

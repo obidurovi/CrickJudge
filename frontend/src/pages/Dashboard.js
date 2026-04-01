@@ -3,7 +3,14 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import PlayerCard from '../components/PlayerCard';
 import useSSE from '../hooks/useSSE';
-import { getPlayerWatchlistIds, getPlayerWatchlistId, isPlayerInWatchlist, togglePlayerWatchlistId } from '../utils/watchlist';
+import {
+    getPlayerWatchlistIds,
+    getPlayerWatchlistId,
+    isPlayerInWatchlist,
+    togglePlayerWatchlistId,
+    fetchRemoteWatchlistIds,
+    saveRemoteWatchlistIds
+} from '../utils/watchlist';
 
 const API = 'http://localhost:5000/api/players';
 
@@ -21,6 +28,10 @@ const Dashboard = () => {
     const [notice, setNotice] = useState(null);
     const [watchlistIds, setWatchlistIds] = useState(() => getPlayerWatchlistIds());
     const [watchlistPlayers, setWatchlistPlayers] = useState([]);
+    const [adminModeKey, setAdminModeKey] = useState('');
+    const [freeTierMode, setFreeTierMode] = useState(null);
+    const [freeTierLoading, setFreeTierLoading] = useState(false);
+    const [freeTierStatus, setFreeTierStatus] = useState('');
 
     const fetchPlayers = useCallback(async (newOffset = 0, append = false) => {
         if (append) setLoadingMore(true);
@@ -52,6 +63,43 @@ const Dashboard = () => {
         }
     }, []);
 
+    const fetchFreeTierMode = useCallback(async () => {
+        try {
+            const { data } = await axios.get('http://localhost:5000/api/system/free-tier-mode');
+            setFreeTierMode(!!data?.freeTierMode);
+        } catch {
+            setFreeTierMode(null);
+        }
+    }, []);
+
+    const handleToggleFreeTierMode = useCallback(async () => {
+        if (typeof freeTierMode !== 'boolean') {
+            setFreeTierStatus('Unable to load current mode');
+            return;
+        }
+
+        if (!adminModeKey.trim()) {
+            setFreeTierStatus('Admin key required');
+            return;
+        }
+
+        setFreeTierLoading(true);
+        setFreeTierStatus('');
+        try {
+            const { data } = await axios.post(
+                'http://localhost:5000/api/system/free-tier-mode',
+                { enabled: !freeTierMode },
+                { headers: { 'x-admin-seed-key': adminModeKey.trim() } }
+            );
+            setFreeTierMode(!!data?.freeTierMode);
+            setFreeTierStatus(data?.message || 'Mode updated');
+        } catch (err) {
+            setFreeTierStatus(err?.response?.data?.message || 'Failed to update mode');
+        } finally {
+            setFreeTierLoading(false);
+        }
+    }, [freeTierMode, adminModeKey]);
+
     const fetchWatchlistPlayers = useCallback(async (ids) => {
         if (!ids.length) {
             setWatchlistPlayers([]);
@@ -71,6 +119,7 @@ const Dashboard = () => {
         if (!watchlistId) return;
         const updated = togglePlayerWatchlistId(watchlistId);
         setWatchlistIds(updated);
+        saveRemoteWatchlistIds(updated);
     }, []);
 
     const handleSearch = useCallback(async () => {
@@ -92,6 +141,23 @@ const Dashboard = () => {
     useEffect(() => {
         fetchPlayers(0);
     }, [fetchPlayers]);
+
+    useEffect(() => {
+        fetchFreeTierMode();
+    }, [fetchFreeTierMode]);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            const remoteIds = await fetchRemoteWatchlistIds();
+            if (active) {
+                setWatchlistIds(remoteIds);
+            }
+        })();
+        return () => {
+            active = false;
+        };
+    }, []);
 
     useEffect(() => {
         fetchWatchlistPlayers(watchlistIds);
@@ -195,6 +261,41 @@ const Dashboard = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
                 <section>
+                    <div className="mb-8 bg-slate-900/60 border border-white/10 rounded-2xl p-4 md:p-5">
+                        <div className="flex items-start justify-between gap-4 flex-wrap">
+                            <div>
+                                <h2 className="text-lg font-bold text-white">Free Tier Mode</h2>
+                                <p className="text-sm text-slate-400 mt-1">Disable API-heavy background jobs when using free CricAPI quota.</p>
+                            </div>
+                            <span className={`px-3 py-1 rounded text-xs font-semibold uppercase tracking-wider border ${freeTierMode ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/10 text-amber-300 border-amber-500/30'}`}>
+                                {freeTierMode ? 'ON' : 'OFF'}
+                            </span>
+                        </div>
+                        <div className="mt-4 flex gap-3 flex-wrap items-center">
+                            <input
+                                type="password"
+                                value={adminModeKey}
+                                onChange={(e) => setAdminModeKey(e.target.value)}
+                                placeholder="Admin key"
+                                className="min-w-[220px] px-3 py-2 rounded-lg bg-slate-800/80 border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-400/50"
+                            />
+                            <button
+                                onClick={handleToggleFreeTierMode}
+                                disabled={freeTierLoading}
+                                className="px-4 py-2 rounded-lg text-sm font-semibold border border-blue-400/40 text-blue-300 hover:bg-blue-500/10 disabled:text-slate-500 disabled:border-slate-700"
+                            >
+                                {freeTierLoading ? 'Updating...' : (freeTierMode ? 'Turn Off Free Tier Mode' : 'Turn On Free Tier Mode')}
+                            </button>
+                            <button
+                                onClick={fetchFreeTierMode}
+                                className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-500/40 text-slate-300 hover:bg-slate-500/10"
+                            >
+                                Refresh Status
+                            </button>
+                        </div>
+                        {freeTierStatus && <p className="mt-3 text-xs text-slate-300">{freeTierStatus}</p>}
+                    </div>
+
                     <div className="mb-10 bg-white/5 border border-white/10 rounded-3xl p-6">
                         <div className="flex items-center justify-between gap-3 flex-wrap mb-5">
                             <div>

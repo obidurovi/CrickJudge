@@ -1,4 +1,5 @@
 const Player = require('../models/Player');
+const PlayerWatchlist = require('../models/PlayerWatchlist');
 const mongoose = require('mongoose');
 const cricketApi = require('../utils/cricketApi');
 const { syncPlayerFromApi } = require('../utils/playerSync');
@@ -52,7 +53,7 @@ const listPlayers = async (req, res) => {
         if (error.message.includes('CRICKET_API_KEY')) {
             return res.status(503).json({ message: 'API key not configured', code: 'API_KEY_MISSING' });
         }
-        if (error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Blocking') || error.message.includes('Blocked')) {
+        if (error.message.includes('API_TEMP_BLOCKED') || error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Blocking') || error.message.includes('Blocked')) {
             const offset = parseInt(req.query.offset) || 0;
             const limit = 25;
             const cachedPlayers = await Player.find({}).sort({ name: 1 }).skip(offset).limit(limit);
@@ -114,7 +115,7 @@ const searchPlayers = async (req, res) => {
         if (error.message.includes('CRICKET_API_KEY')) {
             return res.status(503).json({ message: 'API key not configured', code: 'API_KEY_MISSING' });
         }
-        if (error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Blocking') || error.message.includes('Blocked')) {
+        if (error.message.includes('API_TEMP_BLOCKED') || error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Blocking') || error.message.includes('Blocked')) {
             const { q } = req.query;
             const regex = new RegExp(q, 'i');
             const cachedPlayers = await Player.find({ name: regex }).limit(50);
@@ -202,7 +203,7 @@ const getPlayersByTeam = async (req, res) => {
 
         return res.json(response);
     } catch (error) {
-        if (error.message && (error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Block'))) {
+        if (error.message && (error.message.includes('API_TEMP_BLOCKED') || error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Block'))) {
             // Rate limited — try to serve from DB cache
             const regex = new RegExp(`^${req.params.country.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
             const cachedPlayers = await Player.find({ country: regex }).sort({ name: 1 });
@@ -257,7 +258,7 @@ const syncTeam = async (req, res) => {
             ...result
         });
     } catch (error) {
-        if (error.message && (error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Block'))) {
+        if (error.message && (error.message.includes('API_TEMP_BLOCKED') || error.message.includes('hits') || error.message.includes('limit') || error.message.includes('Block'))) {
             return res.status(429).json({ message: 'API rate limit exceeded.', code: 'RATE_LIMITED' });
         }
         res.status(500).json({ message: error.message });
@@ -355,4 +356,66 @@ const getWatchlistPlayers = async (req, res) => {
     }
 };
 
-module.exports = { listPlayers, searchPlayers, getPlayerDetail, getPlayerCountries, getPlayersByTeam, getTeamsList, syncTeam, syncAll, getSyncStatusEndpoint, getWatchlistPlayers };
+const getWatchlistState = async (req, res) => {
+    try {
+        const clientId = String(req.query.clientId || '').trim();
+        if (!clientId) {
+            return res.status(400).json({ message: 'clientId is required' });
+        }
+
+        const cacheKey = `cric:players:watchlist:state:${clientId}`;
+        const cached = await cache.getJSON(cacheKey);
+        if (cached) return res.json(cached);
+
+        const doc = await PlayerWatchlist.findOne({ clientId }).lean();
+        const result = { clientId, playerIds: Array.isArray(doc?.playerIds) ? doc.playerIds : [] };
+        await cache.setJSON(cacheKey, result, 120);
+        return res.json(result);
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+const saveWatchlistState = async (req, res) => {
+    try {
+        const clientId = String(req.body?.clientId || '').trim();
+        const playerIds = Array.isArray(req.body?.playerIds)
+            ? req.body.playerIds.map((id) => String(id || '').trim()).filter(Boolean).slice(0, 100)
+            : [];
+
+        if (!clientId) {
+            return res.status(400).json({ message: 'clientId is required' });
+        }
+
+        const uniqueIds = Array.from(new Set(playerIds));
+        await PlayerWatchlist.findOneAndUpdate(
+            { clientId },
+            { $set: { playerIds: uniqueIds } },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+
+        const stateCacheKey = `cric:players:watchlist:state:${clientId}`;
+        const listCacheKey = `cric:players:watchlist:${uniqueIds.join(',')}`;
+        await cache.del(stateCacheKey);
+        if (uniqueIds.length) await cache.del(listCacheKey);
+
+        return res.json({ clientId, playerIds: uniqueIds, updated: true });
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+module.exports = {
+    listPlayers,
+    searchPlayers,
+    getPlayerDetail,
+    getPlayerCountries,
+    getPlayersByTeam,
+    getTeamsList,
+    syncTeam,
+    syncAll,
+    getSyncStatusEndpoint,
+    getWatchlistPlayers,
+    getWatchlistState,
+    saveWatchlistState
+};
