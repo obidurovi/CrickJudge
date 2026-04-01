@@ -160,6 +160,7 @@ const MatchScorecard = () => {
     const { id } = useParams();
     const [matchInfo, setMatchInfo] = useState(null);
     const [scorecardData, setScorecardData] = useState(null);
+    const [winProbability, setWinProbability] = useState(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
@@ -197,6 +198,16 @@ const MatchScorecard = () => {
         fetchScorecard(false);
     }, [fetchScorecard]);
 
+    const fetchWinProbability = useCallback(async () => {
+        if (!id) return;
+        try {
+            const { data } = await axios.get(`${API_BASE}/${id}/win-probability`);
+            setWinProbability(data?.probability || null);
+        } catch {
+            setWinProbability(null);
+        }
+    }, [id]);
+
     const mergedMatch = useMemo(() => {
         if (!scorecardData && !matchInfo) return null;
         return {
@@ -216,6 +227,20 @@ const MatchScorecard = () => {
 
         return () => clearInterval(interval);
     }, [fetchScorecard, isLive]);
+
+    useEffect(() => {
+        fetchWinProbability();
+    }, [fetchWinProbability]);
+
+    useEffect(() => {
+        if (!isLive) return undefined;
+
+        const interval = setInterval(() => {
+            fetchWinProbability();
+        }, 30000);
+
+        return () => clearInterval(interval);
+    }, [isLive, fetchWinProbability]);
 
     if (loading) {
         return (
@@ -253,6 +278,10 @@ const MatchScorecard = () => {
     const innings = mergedMatch.scorecard || [];
     const scoreList = mergedMatch.score || [];
     const teamInfo = mergedMatch.teamInfo || [];
+    const teamAProb = Number(winProbability?.teamAWinPct);
+    const teamBProb = Number(winProbability?.teamBWinPct);
+    const showWinProb = isLive && Number.isFinite(teamAProb) && Number.isFinite(teamBProb);
+    const strengthEntries = Object.entries(winProbability?.factors?.teamStrength || {});
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-slate-200">
@@ -340,6 +369,42 @@ const MatchScorecard = () => {
                             );
                         })}
                     </div>
+
+                    {showWinProb && (
+                        <div className="mt-6 bg-black/20 border border-white/5 rounded-xl p-4">
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Live Win Probability</h3>
+                                <span className="text-[10px] text-slate-500">Confidence {winProbability?.confidence || '-'}%</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-slate-300 mb-2">
+                                <span>{winProbability?.teamA || 'Team A'} {teamAProb.toFixed(1)}%</span>
+                                <span>{winProbability?.teamB || 'Team B'} {teamBProb.toFixed(1)}%</span>
+                            </div>
+                            <div className="h-3 rounded-full bg-slate-800 overflow-hidden border border-white/10">
+                                <div
+                                    className="h-full bg-gradient-to-r from-blue-500 to-emerald-400"
+                                    style={{ width: `${Math.max(1, Math.min(99, teamAProb))}%` }}
+                                ></div>
+                            </div>
+                            <p className="mt-2 text-xs text-slate-500">{winProbability?.context || 'Model estimate'} · Venue adjusted using player and venue stats</p>
+                            <details className="mt-2 text-xs text-slate-500">
+                                <summary className="cursor-pointer select-none hover:text-slate-300">Prediction breakdown</summary>
+                                <div className="mt-2 space-y-1 text-slate-400">
+                                    <p>Confidence: {Number(winProbability?.confidence || 0).toFixed(1)}%</p>
+                                    {winProbability?.factors?.venue && (
+                                        <p>
+                                            Venue: {winProbability.factors.venue.name || 'Unknown'} | Par first innings {winProbability.factors.venue.parFirstInnings} | Chasing bias {Number((winProbability.factors.venue.chasingBias || 0) * 100).toFixed(1)}%
+                                        </p>
+                                    )}
+                                    {strengthEntries.map(([teamName, strength]) => (
+                                        <p key={teamName}>
+                                            {teamName}: Bat {Number((strength?.batting || 0) * 100).toFixed(1)} | Bowl {Number((strength?.bowling || 0) * 100).toFixed(1)} | Overall {Number((strength?.overall || 0) * 100).toFixed(1)}
+                                        </p>
+                                    ))}
+                                </div>
+                            </details>
+                        </div>
+                    )}
                 </div>
 
                 {innings.length === 0 ? (

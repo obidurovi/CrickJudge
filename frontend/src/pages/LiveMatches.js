@@ -22,15 +22,15 @@ const MatchCard = ({ match, onClick }) => {
         );
     };
 
-    const formatScore = (inning) => {
-        if (!inning) return '';
-        return `${inning.r}/${inning.w} (${inning.o} ov)`;
-    };
-
     const team1 = match.teamInfo?.[0];
     const team2 = match.teamInfo?.[1];
     const team1Innings = getTeamInnings(team1?.name || match.teams?.[0] || '');
     const team2Innings = getTeamInnings(team2?.name || match.teams?.[1] || '');
+    const winProb = match.winProbability;
+    const teamAProb = Number(winProb?.teamAWinPct);
+    const teamBProb = Number(winProb?.teamBWinPct);
+    const hasWinProb = isLive && Number.isFinite(teamAProb) && Number.isFinite(teamBProb);
+    const strengthEntries = Object.entries(winProb?.factors?.teamStrength || {});
 
     return (
         <div
@@ -95,6 +95,37 @@ const MatchCard = ({ match, onClick }) => {
                 <p className={`text-xs font-medium truncate ${isLive ? 'text-emerald-400' : 'text-slate-500'}`}>
                     {match.status}
                 </p>
+                {hasWinProb && (
+                    <div className="mt-2">
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                            <span>{winProb.teamA} {teamAProb.toFixed(1)}%</span>
+                            <span>{winProb.teamB} {teamBProb.toFixed(1)}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-800 overflow-hidden border border-white/10">
+                            <div
+                                className="h-full bg-gradient-to-r from-blue-500 to-emerald-400"
+                                style={{ width: `${Math.max(1, Math.min(99, teamAProb))}%` }}
+                            ></div>
+                        </div>
+                        <p className="mt-1 text-[10px] text-slate-500">Win Probability · {winProb.context}</p>
+                        <details className="mt-1 text-[10px] text-slate-500">
+                            <summary className="cursor-pointer select-none hover:text-slate-300">Why this prediction?</summary>
+                            <div className="mt-1 space-y-0.5 text-slate-400">
+                                <p>Confidence: {Number(winProb?.confidence || 0).toFixed(1)}%</p>
+                                {winProb?.factors?.venue && (
+                                    <p>
+                                        Venue: {winProb.factors.venue.name || 'Unknown'} | Par {winProb.factors.venue.parFirstInnings} | Chasing bias {Number((winProb.factors.venue.chasingBias || 0) * 100).toFixed(1)}%
+                                    </p>
+                                )}
+                                {strengthEntries.map(([teamName, strength]) => (
+                                    <p key={teamName}>
+                                        {teamName}: Bat {Number((strength?.batting || 0) * 100).toFixed(1)} | Bowl {Number((strength?.bowling || 0) * 100).toFixed(1)} | Overall {Number((strength?.overall || 0) * 100).toFixed(1)}
+                                    </p>
+                                ))}
+                            </div>
+                        </details>
+                    </div>
+                )}
                 {match.venue && (
                     <p className="text-[10px] text-slate-600 mt-1 flex items-center gap-1 truncate">
                         <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
