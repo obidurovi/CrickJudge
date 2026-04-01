@@ -9,6 +9,7 @@ const sseRoutes = require('./routes/sseRoutes');
 const { crawlAllPlayers } = require('./utils/teamSync');
 const { startMatchBroadcastLoop, stopMatchBroadcastLoop } = require('./utils/matchBroadcast');
 const { getRuntimeMode, setFreeTierMode } = require('./config/runtimeMode');
+const { isApiTemporarilyBlocked, getBlockedRemainingMs } = require('./utils/cricketApi');
 
 dotenv.config();
 connectDB();
@@ -54,6 +55,16 @@ app.get('/api/system/free-tier-mode', (req, res) => {
             matchBroadcastPolling: !runtimeMode.freeTierMode,
             backgroundPlayerSync: !runtimeMode.freeTierMode
         }
+    });
+});
+
+app.get('/api/system/api-health', (req, res) => {
+    const blockedRemainingMs = getBlockedRemainingMs();
+    res.json({
+        apiTemporarilyBlocked: isApiTemporarilyBlocked(),
+        blockedRemainingMs,
+        blockedRemainingSeconds: Math.ceil(blockedRemainingMs / 1000),
+        freeTierMode: runtimeMode.freeTierMode
     });
 });
 

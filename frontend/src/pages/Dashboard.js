@@ -32,6 +32,10 @@ const Dashboard = () => {
     const [freeTierMode, setFreeTierMode] = useState(null);
     const [freeTierLoading, setFreeTierLoading] = useState(false);
     const [freeTierStatus, setFreeTierStatus] = useState('');
+    const [apiHealth, setApiHealth] = useState({
+        apiTemporarilyBlocked: false,
+        blockedRemainingSeconds: 0
+    });
 
     const fetchPlayers = useCallback(async (newOffset = 0, append = false) => {
         if (append) setLoadingMore(true);
@@ -69,6 +73,18 @@ const Dashboard = () => {
             setFreeTierMode(!!data?.freeTierMode);
         } catch {
             setFreeTierMode(null);
+        }
+    }, []);
+
+    const fetchApiHealth = useCallback(async () => {
+        try {
+            const { data } = await axios.get('http://localhost:5000/api/system/api-health');
+            setApiHealth({
+                apiTemporarilyBlocked: !!data?.apiTemporarilyBlocked,
+                blockedRemainingSeconds: Number(data?.blockedRemainingSeconds || 0)
+            });
+        } catch {
+            setApiHealth({ apiTemporarilyBlocked: false, blockedRemainingSeconds: 0 });
         }
     }, []);
 
@@ -145,6 +161,12 @@ const Dashboard = () => {
     useEffect(() => {
         fetchFreeTierMode();
     }, [fetchFreeTierMode]);
+
+    useEffect(() => {
+        fetchApiHealth();
+        const timer = setInterval(fetchApiHealth, 10000);
+        return () => clearInterval(timer);
+    }, [fetchApiHealth]);
 
     useEffect(() => {
         let active = true;
@@ -227,6 +249,9 @@ const Dashboard = () => {
     };
 
     const displayPlayers = searchResults !== null ? searchResults : players;
+    const blockedMinutes = Math.floor((apiHealth.blockedRemainingSeconds || 0) / 60);
+    const blockedSeconds = (apiHealth.blockedRemainingSeconds || 0) % 60;
+    const blockedTimeText = `${blockedMinutes}:${String(blockedSeconds).padStart(2, '0')}`;
 
     return (
         <div className='min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200'>
@@ -294,6 +319,13 @@ const Dashboard = () => {
                             </button>
                         </div>
                         {freeTierStatus && <p className="mt-3 text-xs text-slate-300">{freeTierStatus}</p>}
+                        {apiHealth.apiTemporarilyBlocked && (
+                            <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+                                <p className="text-xs text-amber-300 font-medium">
+                                    CricAPI is temporarily blocked on free tier. Cooldown remaining: {blockedTimeText}
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     <div className="mb-10 bg-white/5 border border-white/10 rounded-3xl p-6">
