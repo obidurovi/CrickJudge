@@ -31,6 +31,7 @@ const MatchCard = ({ match, onClick }) => {
     const teamBProb = Number(winProb?.teamBWinPct);
     const hasWinProb = isLive && Number.isFinite(teamAProb) && Number.isFinite(teamBProb);
     const strengthEntries = Object.entries(winProb?.factors?.teamStrength || {});
+    const generatedAtLabel = winProb?.generatedAt ? new Date(winProb.generatedAt).toLocaleTimeString() : 'Unknown';
 
     return (
         <div
@@ -108,6 +109,7 @@ const MatchCard = ({ match, onClick }) => {
                             ></div>
                         </div>
                         <p className="mt-1 text-[10px] text-slate-500">Win Probability · {winProb.context}</p>
+                        <p className="mt-1 text-[10px] text-slate-600">Model {winProb?.modelVersion || 'wp-v1'} · Generated {generatedAtLabel}</p>
                         <details className="mt-1 text-[10px] text-slate-500">
                             <summary className="cursor-pointer select-none hover:text-slate-300">Why this prediction?</summary>
                             <div className="mt-1 space-y-0.5 text-slate-400">

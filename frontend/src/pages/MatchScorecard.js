@@ -282,6 +282,7 @@ const MatchScorecard = () => {
     const teamBProb = Number(winProbability?.teamBWinPct);
     const showWinProb = isLive && Number.isFinite(teamAProb) && Number.isFinite(teamBProb);
     const strengthEntries = Object.entries(winProbability?.factors?.teamStrength || {});
+    const winProbGeneratedAtLabel = winProbability?.generatedAt ? new Date(winProbability.generatedAt).toLocaleTimeString() : 'Unknown';
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-slate-200">
@@ -387,6 +388,7 @@ const MatchScorecard = () => {
                                 ></div>
                             </div>
                             <p className="mt-2 text-xs text-slate-500">{winProbability?.context || 'Model estimate'} · Venue adjusted using player and venue stats</p>
+                            <p className="mt-1 text-[11px] text-slate-600">Model {winProbability?.modelVersion || 'wp-v1'} · Generated {winProbGeneratedAtLabel}</p>
                             <details className="mt-2 text-xs text-slate-500">
                                 <summary className="cursor-pointer select-none hover:text-slate-300">Prediction breakdown</summary>
                                 <div className="mt-2 space-y-1 text-slate-400">

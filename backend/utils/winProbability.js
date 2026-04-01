@@ -6,6 +6,7 @@ const OVER_LIMITS = {
     t20: 20,
     odi: 50
 };
+const MODEL_VERSION = 'wp-v1.1';
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -244,6 +245,7 @@ const calculateWinProbability = async (match) => {
         teamBWinPct: core.teamBWinPct,
         confidence: core.confidence || 90,
         context: core.context || core.reason || 'Model estimate',
+        modelVersion: MODEL_VERSION,
         factors: {
             venue: {
                 found: venueBias.found,
