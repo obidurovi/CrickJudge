@@ -277,36 +277,80 @@ const Dashboard = () => {
     const blockedTimeText = `${blockedMinutes}:${String(blockedSeconds).padStart(2, '0')}`;
 
     return (
-        <div className='min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200'>
+        <div className='relative min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200'>
+            <div className="pointer-events-none absolute inset-0">
+                <div className="absolute -top-20 -left-20 w-72 h-72 bg-blue-500/15 rounded-full blur-3xl"></div>
+                <div className="absolute top-24 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl"></div>
+            </div>
             
             {/* Modern Glass Navbar */}
-            <nav className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-lg border-b border-white/10 shadow-lg">
+            <nav className="sticky top-0 z-50 bg-slate-900/75 backdrop-blur-xl border-b border-white/10 shadow-lg">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-20">
                         
             {/* Logo Section */}
                         <div className="flex-shrink-0 flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-900/40">
                                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                             </div>
                             <div>
                                 <h1 className="text-2xl font-bold text-white tracking-tight">CrickJudge</h1>
-                                <p className="text-xs text-blue-300 font-medium tracking-wide">ANALYTICS ENGINE</p>
+                                <p className="text-xs text-cyan-300 font-medium tracking-wide">ANALYTICS ENGINE</p>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-3">
-                            <Link to="/teams" className="hidden md:flex items-center gap-2 px-3 py-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-sm font-medium">Teams</Link>
-                            <Link to="/analytics" className="hidden md:flex items-center gap-2 px-3 py-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-sm font-medium">Analytics</Link>
-                            <Link to="/simulator" className="hidden md:flex items-center gap-2 px-3 py-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-sm font-medium">Simulator</Link>
-                            <Link to="/live-matches" className="hidden md:flex items-center gap-2 px-3 py-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-sm font-medium">Live</Link>
+                            <Link to="/teams" className="hidden md:flex items-center gap-2 px-3 py-2 text-slate-300 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10 rounded-lg transition-colors text-sm font-medium">Teams</Link>
+                            <Link to="/analytics" className="hidden md:flex items-center gap-2 px-3 py-2 text-slate-300 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10 rounded-lg transition-colors text-sm font-medium">Analytics</Link>
+                            <Link to="/simulator" className="hidden md:flex items-center gap-2 px-3 py-2 text-slate-300 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10 rounded-lg transition-colors text-sm font-medium">Simulator</Link>
+                            <Link to="/live-matches" className="hidden md:flex items-center gap-2 px-3 py-2 text-cyan-200 hover:text-white bg-cyan-500/10 border border-cyan-400/20 rounded-lg transition-colors text-sm font-medium">Live</Link>
                         </div>
                     </div>
                 </div>
             </nav>
 
             {/* Main Content Area */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+                <section className="mb-8">
+                    <div className="surface-glass rounded-3xl p-6 md:p-7">
+                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+                            <div>
+                                <h2 className="text-3xl md:text-4xl font-extrabold text-white leading-tight">Welcome to the Player Analytics Hub</h2>
+                                <p className="text-sm md:text-base text-slate-300 mt-2 max-w-2xl">Track players, monitor API health, and jump into live match intelligence from one control center.</p>
+
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                    <Link to="/live-matches" className="px-3 py-2 rounded-lg text-xs font-semibold text-cyan-100 bg-cyan-500/15 border border-cyan-400/25 hover:bg-cyan-500/25">Open Live Center</Link>
+                                    <Link to="/watchlist" className="px-3 py-2 rounded-lg text-xs font-semibold text-blue-100 bg-blue-500/15 border border-blue-400/25 hover:bg-blue-500/25">View Watchlist</Link>
+                                    <Link to="/series-leaderboards" className="px-3 py-2 rounded-lg text-xs font-semibold text-emerald-100 bg-emerald-500/15 border border-emerald-400/25 hover:bg-emerald-500/25">Series Leaderboards</Link>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 min-w-[250px]">
+                                <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+                                    <p className="text-[10px] uppercase text-slate-500">Tracked Players</p>
+                                    <p className="text-xl font-bold text-white">{watchlistPlayers.length}</p>
+                                </div>
+                                <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+                                    <p className="text-[10px] uppercase text-slate-500">Database Players</p>
+                                    <p className="text-xl font-bold text-white">{total.toLocaleString()}</p>
+                                </div>
+                                <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+                                    <p className="text-[10px] uppercase text-slate-500">API Status</p>
+                                    <p className={`text-sm font-semibold ${apiHealth.apiTemporarilyBlocked ? 'text-amber-300' : 'text-emerald-300'}`}>
+                                        {apiHealth.apiTemporarilyBlocked ? `Cooldown ${blockedTimeText}` : 'Healthy'}
+                                    </p>
+                                </div>
+                                <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+                                    <p className="text-[10px] uppercase text-slate-500">Connection</p>
+                                    <p className={`text-sm font-semibold ${sseConnected ? 'text-emerald-300' : 'text-yellow-300'}`}>
+                                        {sseConnected ? 'Live Sync' : 'Reconnecting'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
                 <section>
                     <div className="mb-8 bg-slate-900/60 border border-white/10 rounded-2xl p-4 md:p-5">
@@ -490,7 +534,9 @@ const Dashboard = () => {
                         </div>
                     ) : displayPlayers.length === 0 ? (
                         <div className='text-center py-32 bg-white/5 rounded-3xl border-2 border-dashed border-white/10'>
-                            <div className="text-6xl mb-4">🏏</div>
+                            <div className="mx-auto mb-4 w-14 h-14 rounded-2xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center">
+                                <svg className="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            </div>
                             <p className='text-slate-300 text-lg font-semibold mb-2'>
                                 {searchResults !== null ? 'No players found' : 'No players available'}
                             </p>

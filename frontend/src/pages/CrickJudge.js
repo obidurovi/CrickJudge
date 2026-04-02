@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 import {
     Radar,
     RadarChart,
@@ -723,27 +724,32 @@ const CrickJudge = () => {
     const notEnoughAfterFilters = !notEnoughPlayers && sortedRows.length < 2;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200">
+        <div className="relative min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200">
+            <div className="pointer-events-none absolute inset-0">
+                <div className="absolute -top-20 left-10 w-72 h-72 bg-blue-500/12 rounded-full blur-3xl"></div>
+                <div className="absolute top-32 right-10 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl"></div>
+            </div>
             <nav className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-lg border-b border-white/10 shadow-lg">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-20">
                         <div className="flex-shrink-0 flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-900/40">
                                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                                 </svg>
                             </div>
                             <div>
                                 <h1 className="text-2xl font-bold text-white tracking-tight">CrickJudge Head-to-Head</h1>
-                                <p className="text-xs text-blue-300 font-medium tracking-wide">MULTI-PLAYER HISTORICAL COMPARISON LAB</p>
+                                <p className="text-xs text-cyan-300 font-medium tracking-wide">MULTI-PLAYER HISTORICAL COMPARISON LAB</p>
                             </div>
                         </div>
+                        <Link to="/" className="text-sm text-slate-400 hover:text-white transition-colors">Back to Dashboard</Link>
                     </div>
                 </div>
             </nav>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+                <div className="surface-glass rounded-2xl p-4">
                     <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Format</span>
                         {FORMAT_OPTIONS.map((option) => (
@@ -761,7 +767,7 @@ const CrickJudge = () => {
 
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
                     <div className="xl:col-span-4 space-y-6">
-                        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                        <div className="surface-glass rounded-2xl p-5">
                             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-3">Add Players ({selectedPlayers.length}/{MAX_COMPARE_PLAYERS})</h2>
                             <input
                                 type="text"
@@ -770,7 +776,7 @@ const CrickJudge = () => {
                                 placeholder="Search by name, role, country"
                                 className="w-full px-3 py-2 rounded-lg bg-slate-900/70 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-400/60"
                             />
-                            <div className="mt-3 max-h-72 overflow-y-auto space-y-2">
+                            <div className="app-scroll mt-3 max-h-72 overflow-y-auto space-y-2">
                                 {searching && <p className="text-xs text-slate-400">Searching players...</p>}
                                 {!searching && selectionOptions.length === 0 && (
                                     <p className="text-xs text-slate-500">No players found for this query.</p>
@@ -799,7 +805,7 @@ const CrickJudge = () => {
                             {dataNotice && <p className="mt-1 text-xs text-slate-500">{dataNotice}</p>}
                         </div>
 
-                        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                        <div className="surface-glass rounded-2xl p-5">
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Selected Players</h3>
                                 <div className="flex items-center gap-2">
@@ -832,7 +838,7 @@ const CrickJudge = () => {
                             )}
                         </div>
 
-                        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                        <div className="surface-glass rounded-2xl p-5">
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Saved Presets</h3>
                                 <button
@@ -867,7 +873,7 @@ const CrickJudge = () => {
                             {!presets.length ? (
                                 <p className="mt-3 text-xs text-slate-500">No saved presets yet. Save your current comparison to reuse it later.</p>
                             ) : (
-                                <div className="mt-3 max-h-56 overflow-y-auto space-y-2">
+                                <div className="app-scroll mt-3 max-h-56 overflow-y-auto space-y-2">
                                     {presets.map((preset) => (
                                         <div key={preset.id} className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
                                             <div className="flex items-center justify-between gap-2">
@@ -896,7 +902,7 @@ const CrickJudge = () => {
                             )}
                         </div>
 
-                        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+                        <div className="surface-glass rounded-2xl p-5 space-y-4">
                             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Comparison Controls</h3>
                             <div className="grid grid-cols-2 gap-3">
                                 <label className="text-xs text-slate-400">
@@ -963,7 +969,7 @@ const CrickJudge = () => {
 
                     <div className="xl:col-span-8 space-y-6">
                         {notEnoughPlayers && (
-                            <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center">
+                            <div className="surface-glass rounded-2xl p-8 text-center">
                                 <p className="text-lg font-semibold text-white">Select at least 2 players to compare.</p>
                                 <p className="text-sm text-slate-500 mt-1">You can compare up to 8 players with format-specific historical metrics.</p>
                             </div>
@@ -979,7 +985,7 @@ const CrickJudge = () => {
                             <>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                                     {metricLeaders.map((leader) => (
-                                        <div key={leader.key} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                                        <div key={leader.key} className="surface-glass rounded-xl p-4">
                                             <p className="text-xs uppercase tracking-wider text-slate-500">{leader.title}</p>
                                             <p className="text-lg font-bold text-white mt-1 truncate">{leader.name}</p>
                                             <p className="text-sm text-slate-300 mt-1">{leader.value}</p>
@@ -988,7 +994,7 @@ const CrickJudge = () => {
                                 </div>
 
                                 <div className="grid grid-cols-1 2xl:grid-cols-2 gap-6">
-                                    <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                                    <div className="surface-glass rounded-2xl p-4">
                                         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-3">Multi-Player Radar (Top 6 by current sorting)</h3>
                                         <div className="h-[360px]">
                                             <ResponsiveContainer width="100%" height="100%">
@@ -1017,7 +1023,7 @@ const CrickJudge = () => {
                                         </div>
                                     </div>
 
-                                    <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                                    <div className="surface-glass rounded-2xl p-4">
                                         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-3">Leaderboard Bar ({sortMeta.label})</h3>
                                         <div className="h-[360px]">
                                             <ResponsiveContainer width="100%" height="100%">
@@ -1036,7 +1042,7 @@ const CrickJudge = () => {
                                     </div>
                                 </div>
 
-                                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 overflow-x-auto">
+                                <div className="surface-glass rounded-2xl p-4 app-scroll overflow-x-auto">
                                     <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-3">Head-to-Head Matrix (Wins-Losses across 6 key metrics)</h3>
                                     <table className="w-full text-sm min-w-[680px]">
                                         <thead>
@@ -1060,7 +1066,7 @@ const CrickJudge = () => {
                                     </table>
                                 </div>
 
-                                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 overflow-x-auto">
+                                <div className="surface-glass rounded-2xl p-4 app-scroll overflow-x-auto">
                                     <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-3">Historical Leaderboard ({formatFilter.toUpperCase()})</h3>
                                     <table className="w-full text-sm min-w-[980px]">
                                         <thead>
