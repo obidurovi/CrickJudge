@@ -668,26 +668,32 @@ const VenueIntelligence = () => {
                             </div>
 
                             <div>
-                                <p className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">Venue List</p>
-                                <select
-                                    value={String(selectedVenue?.id ?? '')}
-                                    onChange={(event) => {
-                                        const next = venues.find((venue) => String(venue.id) === event.target.value);
-                                        if (next) setSelectedVenue(next);
-                                    }}
-                                    disabled={filteredVenues.length === 0}
-                                    className="w-full rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:text-slate-500"
-                                >
+                                <p className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">All International Venues</p>
+                                <div className="app-scroll max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/60 p-1.5">
                                     {filteredVenues.length === 0 ? (
-                                        <option value="">No venues found</option>
+                                        <div className="px-3 py-6 text-center text-sm text-slate-500">No venues found</div>
                                     ) : (
-                                        filteredVenues.map((venue) => (
-                                            <option key={venue.id} value={String(venue.id)}>
-                                                {venue.name} {venue.location ? `- ${venue.location}` : ''}
-                                            </option>
-                                        ))
+                                        filteredVenues.map((venue, index) => {
+                                            const active = String(selectedVenue?.id || '') === String(venue.id);
+                                            return (
+                                                <button
+                                                    key={venue.id}
+                                                    onClick={() => setSelectedVenue(venue)}
+                                                    className={`w-full rounded-lg px-3 py-2 text-left transition-colors ${
+                                                        active
+                                                            ? 'bg-gradient-to-r from-blue-600/40 to-cyan-500/30 border border-cyan-400/30'
+                                                            : 'border border-transparent hover:bg-slate-800/70'
+                                                    }`}
+                                                >
+                                                    <p className="text-sm font-semibold text-white">
+                                                        {index + 1}. {venue.name}
+                                                    </p>
+                                                    <p className="text-xs text-slate-400 mt-0.5">{venue.location || 'Unknown location'}</p>
+                                                </button>
+                                            );
+                                        })
                                     )}
-                                </select>
+                                </div>
                             </div>
 
                             <p className="text-xs text-slate-500">
