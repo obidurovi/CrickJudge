@@ -34,6 +34,30 @@ const fitBandClass = (fitBand) => {
     return 'text-rose-300 border-rose-500/30 bg-rose-500/10';
 };
 
+const metricTextClass = (value) => {
+    const num = toNumber(value, 0);
+    if (num >= 75) return 'text-emerald-300';
+    if (num >= 55) return 'text-blue-300';
+    if (num >= 40) return 'text-amber-300';
+    return 'text-rose-300';
+};
+
+const metricBadgeClass = (value) => {
+    const num = toNumber(value, 0);
+    if (num >= 75) return 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10';
+    if (num >= 55) return 'text-blue-300 border-blue-500/30 bg-blue-500/10';
+    if (num >= 40) return 'text-amber-300 border-amber-500/30 bg-amber-500/10';
+    return 'text-rose-300 border-rose-500/30 bg-rose-500/10';
+};
+
+const metricBandLabel = (value) => {
+    const num = toNumber(value, 0);
+    if (num >= 75) return 'High';
+    if (num >= 55) return 'Strong';
+    if (num >= 40) return 'Balanced';
+    return 'Low';
+};
+
 const playerIdentifier = (player) => String(player?.apiId || player?._id || player?.id || '').trim();
 
 const VenueIntelligence = () => {
@@ -458,14 +482,14 @@ const VenueIntelligence = () => {
         if (!analysis?.indices) return [];
 
         return [
-            { key: 'battingSuitability', label: 'Batting Suitability', value: analysis.indices.battingSuitability, color: 'bg-blue-500' },
-            { key: 'bowlingSuitability', label: 'Bowling Suitability', value: analysis.indices.bowlingSuitability, color: 'bg-emerald-500' },
-            { key: 'paceAlignment', label: 'Pace Alignment', value: analysis.indices.paceAlignment, color: 'bg-rose-500' },
-            { key: 'spinAlignment', label: 'Spin Alignment', value: analysis.indices.spinAlignment, color: 'bg-indigo-500' },
-            { key: 'scoringEnvironment', label: 'Scoring Environment', value: analysis.indices.scoringEnvironment, color: 'bg-amber-500' },
-            { key: 'chaseIndex', label: 'Chase Index', value: analysis.indices.chaseIndex, color: 'bg-cyan-500' },
-            { key: 'powerplayImpact', label: 'Powerplay Impact', value: analysis.indices.powerplayImpact, color: 'bg-violet-500' },
-            { key: 'deathOversImpact', label: 'Death Overs Impact', value: analysis.indices.deathOversImpact, color: 'bg-fuchsia-500' }
+            { key: 'battingSuitability', label: 'Batting Suitability', value: analysis.indices.battingSuitability },
+            { key: 'bowlingSuitability', label: 'Bowling Suitability', value: analysis.indices.bowlingSuitability },
+            { key: 'paceAlignment', label: 'Pace Alignment', value: analysis.indices.paceAlignment },
+            { key: 'spinAlignment', label: 'Spin Alignment', value: analysis.indices.spinAlignment },
+            { key: 'scoringEnvironment', label: 'Scoring Environment', value: analysis.indices.scoringEnvironment },
+            { key: 'chaseIndex', label: 'Chase Index', value: analysis.indices.chaseIndex },
+            { key: 'powerplayImpact', label: 'Powerplay Impact', value: analysis.indices.powerplayImpact },
+            { key: 'deathOversImpact', label: 'Death Overs Impact', value: analysis.indices.deathOversImpact }
         ];
     }, [analysis]);
 
@@ -473,6 +497,17 @@ const VenueIntelligence = () => {
     const directSamples = Array.isArray(analysis?.directVenueRecord?.samples)
         ? analysis.directVenueRecord.samples
         : [];
+    const paceShare = Math.max(0, Math.min(100, toNumber(selectedVenue?.paceSpin?.pace, 0)));
+    const spinShare = Math.max(0, Math.min(100, toNumber(selectedVenue?.paceSpin?.spin, 0)));
+    const avgFirstInnings = toNumber(selectedVenue?.avgScores?.first, 0);
+    const avgSecondInnings = toNumber(selectedVenue?.avgScores?.second, 0);
+    const inningsGap = avgFirstInnings - avgSecondInnings;
+    const inningsGapTone = inningsGap > 0 ? 'text-emerald-300' : inningsGap < 0 ? 'text-amber-300' : 'text-slate-300';
+    const inningsGapLabel = inningsGap > 0
+        ? `${asFixed(Math.abs(inningsGap), 0)} run first-innings edge`
+        : inningsGap < 0
+            ? `${asFixed(Math.abs(inningsGap), 0)} run chase edge`
+            : 'No scoring split edge';
 
     if (loading) return <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center text-white">Loading Venues...</div>;
     if (!selectedVenue) return <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center text-white">No Venues Found. Run backend seeding with: npm run seed:venues</div>;
@@ -591,76 +626,66 @@ const VenueIntelligence = () => {
                         </div>
                     </div>
 
-                    {/* Card 2: Wicket Distribution (Donut Chart) */}
-                    <div className="surface-glass rounded-3xl p-6 flex flex-col items-center justify-center relative">
-                        <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-6 w-full text-left flex items-center gap-2">
+                    {/* Card 2: Bowling Split */}
+                    <div className="surface-glass rounded-3xl p-6 flex flex-col">
+                        <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-5 w-full text-left flex items-center gap-2">
                             <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                            Wicket Distribution
+                            Bowling Split
                         </h3>
-                        
-                        <div className="relative w-48 h-48">
-                            <svg className="w-full h-full transform -rotate-90">
-                                <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="20" fill="transparent" className="text-blue-900/30" />
-                                <circle 
-                                    cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="20" fill="transparent" 
-                                    className="text-red-500"
-                                    strokeDasharray={`${selectedVenue.paceSpin.pace * 5.02} 502`} 
-                                />
-                                <circle 
-                                    cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="20" fill="transparent" 
-                                    className="text-blue-500"
-                                    strokeDasharray={`${selectedVenue.paceSpin.spin * 5.02} 502`} 
-                                    strokeDashoffset={`-${selectedVenue.paceSpin.pace * 5.02}`}
-                                />
-                            </svg>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className="text-3xl font-bold text-white">{selectedVenue.paceSpin.pace}%</span>
-                                <span className="text-xs text-red-400 font-bold uppercase">Pace</span>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-slate-900/70 border border-white/10 rounded-2xl p-4">
+                                <p className="text-[10px] uppercase tracking-wider text-slate-500">Pace Share</p>
+                                <p className="mt-1 text-3xl font-bold text-rose-300">{asFixed(paceShare, 0)}%</p>
+                                <p className="text-xs text-slate-400 mt-1">Wickets by seam/pace</p>
+                            </div>
+                            <div className="bg-slate-900/70 border border-white/10 rounded-2xl p-4">
+                                <p className="text-[10px] uppercase tracking-wider text-slate-500">Spin Share</p>
+                                <p className="mt-1 text-3xl font-bold text-blue-300">{asFixed(spinShare, 0)}%</p>
+                                <p className="text-xs text-slate-400 mt-1">Wickets by spin</p>
                             </div>
                         </div>
-                        <div className="flex gap-6 mt-6">
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                                <span className="text-sm text-slate-300">Pace</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                                <span className="text-sm text-slate-300">Spin</span>
-                            </div>
+
+                        <div className="mt-4 bg-black/20 border border-white/10 rounded-2xl p-4">
+                            <p className="text-[10px] uppercase tracking-wider text-slate-500">Pitch Lean</p>
+                            <p className="mt-1 text-sm font-semibold text-white">
+                                {paceShare === spinShare
+                                    ? 'Balanced wicket profile across pace and spin.'
+                                    : paceShare > spinShare
+                                        ? 'Pace bowlers currently hold the stronger edge.'
+                                        : 'Spin bowlers currently hold the stronger edge.'}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-2">Use this split with player role and venue form before finalizing picks.</p>
                         </div>
-                        <p className="text-xs text-slate-500 mt-4 text-center">Historical Wicket Data (Pace vs Spin)</p>
                     </div>
 
-                    {/* Card 3: Average Scores (Bar Chart) */}
+                    {/* Card 3: Average Scores */}
                     <div className="surface-glass rounded-3xl p-6 flex flex-col">
                         <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-6 flex items-center gap-2">
                             <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
                             Average Scores
                         </h3>
 
-                        <div className="flex-1 flex items-end justify-center gap-8 px-4 pb-4 border-b border-white/5 border-dashed">
-                            {/* Bar 1 */}
-                            <div className="flex flex-col items-center gap-2 w-16 group">
-                                <span className="text-lg font-bold text-white mb-1 opacity-0 group-hover:opacity-100 transition-opacity">{selectedVenue.avgScores.first}</span>
-                                <div 
-                                    className="w-full bg-blue-500 rounded-t-lg transition-all duration-500 hover:bg-blue-400"
-                                    style={{ height: `${(selectedVenue.avgScores.first / 300) * 200}px` }}
-                                ></div>
-                                <span className="text-xs text-slate-400 font-medium">1st Inn</span>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-slate-900/70 border border-white/10 rounded-2xl p-4">
+                                <p className="text-[10px] uppercase tracking-wider text-slate-500">First Innings</p>
+                                <p className="mt-1 text-3xl font-bold text-blue-300">{asFixed(avgFirstInnings, 0)}</p>
+                                <p className="text-xs text-slate-400 mt-1">Average total</p>
                             </div>
-
-                            {/* Bar 2 */}
-                            <div className="flex flex-col items-center gap-2 w-16 group">
-                                <span className="text-lg font-bold text-white mb-1 opacity-0 group-hover:opacity-100 transition-opacity">{selectedVenue.avgScores.second}</span>
-                                <div 
-                                    className="w-full bg-purple-500 rounded-t-lg transition-all duration-500 hover:bg-purple-400"
-                                    style={{ height: `${(selectedVenue.avgScores.second / 300) * 200}px` }}
-                                ></div>
-                                <span className="text-xs text-slate-400 font-medium">2nd Inn</span>
+                            <div className="bg-slate-900/70 border border-white/10 rounded-2xl p-4">
+                                <p className="text-[10px] uppercase tracking-wider text-slate-500">Second Innings</p>
+                                <p className="mt-1 text-3xl font-bold text-violet-300">{asFixed(avgSecondInnings, 0)}</p>
+                                <p className="text-xs text-slate-400 mt-1">Average chase score</p>
                             </div>
                         </div>
 
-                        <div className="mt-6 flex justify-between items-center">
+                        <div className="mt-4 bg-black/20 border border-white/10 rounded-2xl p-4">
+                            <p className="text-[10px] uppercase tracking-wider text-slate-500">Scoring Gap</p>
+                            <p className={`mt-1 text-sm font-semibold ${inningsGapTone}`}>{inningsGapLabel}</p>
+                            <p className="text-xs text-slate-400 mt-2">Compare this with toss and chasing trends while planning combinations.</p>
+                        </div>
+
+                        <div className="mt-4 flex justify-between items-center">
                             <span className="text-sm text-slate-400">Batting First Advantage</span>
                             <span className={`text-sm font-bold px-3 py-1 rounded-full ${
                                 selectedVenue.battingAdvantage === 'High' ? 'bg-green-500/20 text-green-400' : 
@@ -958,11 +983,13 @@ const VenueIntelligence = () => {
                                             {analysis.fitBand}
                                         </span>
                                     </div>
-                                    <div className="mt-3 h-2 rounded-full bg-slate-800 overflow-hidden">
-                                        <div
-                                            className="h-full bg-blue-500"
-                                            style={{ width: `${Math.max(0, Math.min(100, toNumber(analysis.overallFitScore, 0)))}%` }}
-                                        ></div>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full border uppercase tracking-wider font-semibold ${metricBadgeClass(analysis.overallFitScore)}`}>
+                                            {metricBandLabel(analysis.overallFitScore)} Fit
+                                        </span>
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-500/30 bg-slate-500/10 text-slate-300 uppercase tracking-wider font-semibold">
+                                            {analysis?.format?.label || analysisFormat.toUpperCase()}
+                                        </span>
                                     </div>
                                 </div>
 
@@ -1011,15 +1038,12 @@ const VenueIntelligence = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     {indexRows.map((row) => (
                                         <div key={row.key} className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <p className="text-xs text-slate-300">{row.label}</p>
-                                                <span className="text-xs font-mono text-slate-200">{asFixed(row.value)}%</span>
-                                            </div>
-                                            <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
-                                                <div
-                                                    className={`h-full ${row.color}`}
-                                                    style={{ width: `${Math.max(0, Math.min(100, toNumber(row.value, 0)))}%` }}
-                                                ></div>
+                                            <p className="text-xs text-slate-300">{row.label}</p>
+                                            <div className="mt-2 flex items-center justify-between">
+                                                <span className={`text-lg font-bold ${metricTextClass(row.value)}`}>{asFixed(row.value)}%</span>
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full border uppercase tracking-wider font-semibold ${metricBadgeClass(row.value)}`}>
+                                                    {metricBandLabel(row.value)}
+                                                </span>
                                             </div>
                                         </div>
                                     ))}

@@ -93,7 +93,7 @@ const useSSE = (path, handlers, enabled = true) => {
             }
             setConnected(false);
         };
-    }, [path, enabled]); // Only reconnect when path or enabled changes
+    }, [connect]); // Reconnect when the stable connect callback changes
 
     return { connected, error, reconnectCount };
 };

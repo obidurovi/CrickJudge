@@ -65,7 +65,7 @@ const BattingTable = ({ batting = [] }) => {
     }
 
     return (
-        <div className="overflow-x-auto">
+        <div className="app-scroll overflow-x-auto">
             <table className="w-full text-sm">
                 <thead>
                     <tr className="text-slate-400 border-b border-white/10">
@@ -112,7 +112,7 @@ const BowlingTable = ({ bowling = [] }) => {
     }
 
     return (
-        <div className="overflow-x-auto">
+        <div className="app-scroll overflow-x-auto">
             <table className="w-full text-sm">
                 <thead>
                     <tr className="text-slate-400 border-b border-white/10">
@@ -244,8 +244,12 @@ const MatchScorecard = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center">
-                <div className="text-center">
+            <div className="relative min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center text-slate-200">
+                <div className="pointer-events-none absolute inset-0">
+                    <div className="absolute -top-20 left-8 h-64 w-64 rounded-full bg-blue-500/20 blur-3xl"></div>
+                    <div className="absolute top-24 right-0 h-72 w-72 rounded-full bg-cyan-500/15 blur-3xl"></div>
+                </div>
+                <div className="relative text-center surface-glass rounded-2xl px-10 py-8">
                     <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p className="text-slate-400 font-medium">Loading scorecard...</p>
                 </div>
@@ -255,12 +259,16 @@ const MatchScorecard = () => {
 
     if (!mergedMatch || error) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-slate-200 px-6 py-10">
-                <div className="max-w-5xl mx-auto">
+            <div className="relative min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-slate-200 px-6 py-10">
+                <div className="pointer-events-none absolute inset-0">
+                    <div className="absolute -top-20 left-8 h-64 w-64 rounded-full bg-blue-500/20 blur-3xl"></div>
+                    <div className="absolute top-24 right-0 h-72 w-72 rounded-full bg-cyan-500/15 blur-3xl"></div>
+                </div>
+                <div className="relative max-w-5xl mx-auto">
                     <div className="mb-6">
                         <Link to="/live-matches" className="text-sm text-slate-400 hover:text-white transition-colors">Back to Live Matches</Link>
                     </div>
-                    <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6">
+                    <div className="surface-glass border border-red-500/30 rounded-2xl p-6">
                         <h1 className="text-xl font-bold text-white mb-2">Unable to load match scorecard</h1>
                         <p className="text-red-300 text-sm mb-4">{error || 'Scorecard data not available for this match.'}</p>
                         <button
@@ -288,8 +296,12 @@ const MatchScorecard = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-slate-200">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="relative min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-slate-200">
+            <div className="pointer-events-none absolute inset-0">
+                <div className="absolute -top-20 left-8 h-64 w-64 rounded-full bg-blue-500/20 blur-3xl"></div>
+                <div className="absolute top-24 right-0 h-72 w-72 rounded-full bg-cyan-500/15 blur-3xl"></div>
+            </div>
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="mb-6 flex items-center justify-between">
                     <Link to="/live-matches" className="text-sm text-slate-400 hover:text-white transition-colors">Back to Live Matches</Link>
                     <div className="flex items-center gap-3">
@@ -308,7 +320,7 @@ const MatchScorecard = () => {
                     </div>
                 </div>
 
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-6">
+                <div className="surface-glass rounded-2xl p-6 mb-6">
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                         <div>
                             <div className="flex items-center gap-2 mb-2">
@@ -346,7 +358,7 @@ const MatchScorecard = () => {
                             });
 
                             return (
-                                <div key={`${teamName}-${idx}`} className="bg-black/20 border border-white/5 rounded-xl p-4">
+                                <div key={`${teamName}-${idx}`} className="bg-slate-900/45 border border-white/10 rounded-xl p-4">
                                     <div className="flex items-center gap-3 mb-2">
                                         {team.img ? (
                                             <img src={team.img} alt={teamName} className="w-9 h-9 rounded-full object-cover border border-white/10" />
@@ -375,7 +387,7 @@ const MatchScorecard = () => {
                     </div>
 
                     {showWinProb && (
-                        <div className="mt-6 bg-black/20 border border-white/5 rounded-xl p-4">
+                        <div className="mt-6 bg-slate-900/45 border border-white/10 rounded-xl p-4">
                             {isLowConfidence && (
                                 <p className="mb-2 inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
                                     Low-confidence estimate
@@ -418,7 +430,7 @@ const MatchScorecard = () => {
                 </div>
 
                 {innings.length === 0 ? (
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                    <div className="surface-glass rounded-2xl p-6">
                         <p className="text-slate-400">Detailed innings scorecard is not available yet for this match.</p>
                     </div>
                 ) : (
@@ -428,7 +440,7 @@ const MatchScorecard = () => {
                             const partnershipEntries = (inning.partnerships || inning.partnership || []).map(normalizePartnership).filter(Boolean);
 
                             return (
-                                <section key={`${inning.inning || `inning-${idx}`}-${idx}`} className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                                <section key={`${inning.inning || `inning-${idx}`}-${idx}`} className="surface-glass rounded-2xl p-6">
                                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-5">
                                         <h2 className="text-xl font-bold text-white">{inning.inning || `Innings ${idx + 1}`}</h2>
                                         <p className="text-sm font-mono text-emerald-300">
@@ -437,19 +449,19 @@ const MatchScorecard = () => {
                                     </div>
 
                                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                        <div className="bg-black/20 border border-white/5 rounded-xl p-4">
+                                        <div className="bg-slate-900/45 border border-white/10 rounded-xl p-4">
                                             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-3">Batting</h3>
                                             <BattingTable batting={inning.batting || []} />
                                         </div>
 
-                                        <div className="bg-black/20 border border-white/5 rounded-xl p-4">
+                                        <div className="bg-slate-900/45 border border-white/10 rounded-xl p-4">
                                             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-3">Bowling</h3>
                                             <BowlingTable bowling={inning.bowling || []} />
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
-                                        <div className="bg-black/20 border border-white/5 rounded-xl p-4">
+                                        <div className="bg-slate-900/45 border border-white/10 rounded-xl p-4">
                                             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-3">Fall of Wickets</h3>
                                             {fowEntries.length ? (
                                                 <ul className="space-y-2 text-sm text-slate-300">
@@ -464,7 +476,7 @@ const MatchScorecard = () => {
                                             )}
                                         </div>
 
-                                        <div className="bg-black/20 border border-white/5 rounded-xl p-4">
+                                        <div className="bg-slate-900/45 border border-white/10 rounded-xl p-4">
                                             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-3">Partnerships</h3>
                                             {partnershipEntries.length ? (
                                                 <ul className="space-y-2 text-sm text-slate-300">
