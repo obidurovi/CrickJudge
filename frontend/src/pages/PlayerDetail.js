@@ -156,6 +156,12 @@ const PlayerDetail = () => {
                   </svg>
                   {isWatchlisted ? 'Watching' : 'Watch'}
                 </button>
+                <Link
+                  to={`/player-form-tracker?player=${encodeURIComponent(player.name || '')}`}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20"
+                >
+                  Form Tracker
+                </Link>
                 {player.source === 'api' && (
                   <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-xs font-semibold flex items-center gap-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${sseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`}></span>

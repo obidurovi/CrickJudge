@@ -11,6 +11,7 @@ import PlayerDetail from './pages/PlayerDetail';
 import MatchScorecard from './pages/MatchScorecard';
 import WatchlistDashboard from './pages/WatchlistDashboard';
 import SeriesLeaderboards from './pages/SeriesLeaderboards';
+import PlayerFormTracker from './pages/PlayerFormTracker';
 
 const Sidebar = () => {
   const location = useLocation();
@@ -40,6 +41,10 @@ const Sidebar = () => {
         <Link to="/series-leaderboards" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/series-leaderboards')}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 17l6-6 4 4 8-8M14 7h7v7"></path></svg>
           Leaderboards
+        </Link>
+        <Link to="/player-form-tracker" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/player-form-tracker')}`}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 19h16M6 15l3-3 3 2 4-5 2 2"></path></svg>
+          Player Form
         </Link>
         <Link to="/watchlist" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/watchlist')}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3l14 0l0 18l-7-5l-7 5z"></path></svg>
@@ -95,6 +100,7 @@ function App() {
             <Route path="/live-matches" element={<LiveMatches />} />
             <Route path="/live-matches/:id" element={<MatchScorecard />} />
             <Route path="/series-leaderboards" element={<SeriesLeaderboards />} />
+            <Route path="/player-form-tracker" element={<PlayerFormTracker />} />
             <Route path="/watchlist" element={<WatchlistDashboard />} />
             <Route path="/player/:apiId" element={<PlayerDetail />} />
             <Route path="/crickjudge" element={<CrickJudge />} />

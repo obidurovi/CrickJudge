@@ -117,6 +117,7 @@ const SeriesLeaderboards = () => {
                         >
                             Refresh
                         </button>
+                        <Link to="/player-form-tracker" className="text-sm text-blue-300 hover:text-blue-200">Player Form Tracker</Link>
                         <Link to="/live-matches" className="text-sm text-slate-400 hover:text-white">Back to Live Matches</Link>
                     </div>
                 </div>
