@@ -18,6 +18,8 @@ import {
 
 const PLAYERS_API = 'http://localhost:5000/api/players';
 const MAX_COMPARE_PLAYERS = 8;
+const PRESETS_STORAGE_KEY = 'crickjudge.h2h.presets.v1';
+const MAX_PRESETS = 30;
 
 const COLOR_PALETTE = ['#3b82f6', '#a855f7', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6', '#84cc16'];
 
@@ -136,6 +138,47 @@ const downloadFile = (content, fileName, mimeType) => {
     URL.revokeObjectURL(link.href);
 };
 
+const loadPresetsFromStorage = () => {
+    try {
+        const raw = localStorage.getItem(PRESETS_STORAGE_KEY);
+        if (!raw) return [];
+
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+
+        const validFormats = new Set(FORMAT_OPTIONS.map((option) => option.key));
+        const validMetrics = new Set(METRIC_OPTIONS.map((option) => option.key));
+
+        return parsed
+            .filter((entry) => entry && typeof entry === 'object')
+            .map((entry) => ({
+                id: String(entry.id || `preset-${Date.now()}`),
+                name: String(entry.name || 'Untitled Preset').slice(0, 80),
+                playerIds: Array.isArray(entry.playerIds)
+                    ? entry.playerIds.map((id) => String(id || '').trim()).filter(Boolean).slice(0, MAX_COMPARE_PLAYERS)
+                    : [],
+                formatFilter: validFormats.has(entry.formatFilter) ? entry.formatFilter : 'overall',
+                filters: {
+                    roleFilter: String(entry?.filters?.roleFilter || 'all'),
+                    countryFilter: String(entry?.filters?.countryFilter || 'all'),
+                    minMatches: Math.max(0, Number(entry?.filters?.minMatches) || 0),
+                    sortMetric: validMetrics.has(entry?.filters?.sortMetric) ? entry.filters.sortMetric : 'formScore',
+                    sortDirection: entry?.filters?.sortDirection === 'asc' ? 'asc' : 'desc'
+                },
+                createdAt: entry.createdAt || new Date().toISOString(),
+                updatedAt: entry.updatedAt || new Date().toISOString()
+            }))
+            .filter((entry) => entry.playerIds.length > 0)
+            .slice(0, MAX_PRESETS);
+    } catch {
+        return [];
+    }
+};
+
+const savePresetsToStorage = (presets) => {
+    localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify((presets || []).slice(0, MAX_PRESETS)));
+};
+
 const CrickJudge = () => {
     const [playerPool, setPlayerPool] = useState([]);
     const [selectedPlayers, setSelectedPlayers] = useState([]);
@@ -156,6 +199,9 @@ const CrickJudge = () => {
     const [selectionStatus, setSelectionStatus] = useState('');
     const [copyStatus, setCopyStatus] = useState('');
     const [dataNotice, setDataNotice] = useState('');
+    const [presets, setPresets] = useState(() => loadPresetsFromStorage());
+    const [presetName, setPresetName] = useState('');
+    const [presetStatus, setPresetStatus] = useState('');
 
     const fetchInitialPlayers = useCallback(async () => {
         try {
@@ -172,6 +218,21 @@ const CrickJudge = () => {
     useEffect(() => {
         fetchInitialPlayers();
     }, [fetchInitialPlayers]);
+
+    useEffect(() => {
+        savePresetsToStorage(presets);
+    }, [presets]);
+
+    useEffect(() => {
+        const onStorage = (event) => {
+            if (event.key === PRESETS_STORAGE_KEY) {
+                setPresets(loadPresetsFromStorage());
+            }
+        };
+
+        window.addEventListener('storage', onStorage);
+        return () => window.removeEventListener('storage', onStorage);
+    }, []);
 
     useEffect(() => {
         const query = searchTerm.trim();
@@ -304,11 +365,125 @@ const CrickJudge = () => {
         setSelectionStatus(candidates.length ? '' : 'No eligible players available to auto-fill.');
     };
 
+    const saveCurrentPreset = () => {
+        if (selectedIds.length < 2) {
+            setPresetStatus('Select at least 2 players before saving a preset.');
+            return;
+        }
+
+        const name = presetName.trim() || `Preset ${presets.length + 1}`;
+        const normalizedName = normalizeText(name);
+        const existing = presets.find((entry) => normalizeText(entry.name) === normalizedName);
+        const now = new Date().toISOString();
+
+        const nextPreset = {
+            id: existing?.id || `preset-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+            name,
+            playerIds: selectedIds.slice(0, MAX_COMPARE_PLAYERS),
+            formatFilter,
+            filters: {
+                roleFilter,
+                countryFilter,
+                minMatches,
+                sortMetric,
+                sortDirection
+            },
+            createdAt: existing?.createdAt || now,
+            updatedAt: now
+        };
+
+        setPresets((prev) => {
+            const replaced = existing
+                ? prev.map((entry) => (entry.id === existing.id ? nextPreset : entry))
+                : [nextPreset, ...prev];
+            return replaced.slice(0, MAX_PRESETS);
+        });
+
+        setPresetName('');
+        setPresetStatus(existing ? `Preset "${name}" updated.` : `Preset "${name}" saved.`);
+    };
+
+    const loadPreset = useCallback(async (preset) => {
+        if (!preset?.playerIds?.length) {
+            setPresetStatus('Preset is empty.');
+            return;
+        }
+
+        const playerMap = new Map();
+        [...playerPool, ...searchResults, ...selectedPlayers, ...hydratedPlayers].forEach((player) => {
+            const primary = getPlayerId(player);
+            if (primary) playerMap.set(primary, player);
+            if (player?.apiId) playerMap.set(String(player.apiId), player);
+            if (player?._id) playerMap.set(String(player._id), player);
+        });
+
+        const missingIds = preset.playerIds.filter((id) => !playerMap.has(id));
+        if (missingIds.length) {
+            try {
+                const { data } = await axios.get(`${PLAYERS_API}/watchlist?ids=${encodeURIComponent(missingIds.join(','))}`);
+                const remotePlayers = Array.isArray(data?.players) ? data.players : [];
+                remotePlayers.forEach((player) => {
+                    const primary = getPlayerId(player);
+                    if (primary) playerMap.set(primary, player);
+                    if (player?.apiId) playerMap.set(String(player.apiId), player);
+                    if (player?._id) playerMap.set(String(player._id), player);
+                });
+            } catch {
+                // If hydration fails, we still load what is available locally.
+            }
+        }
+
+        const orderedPlayers = preset.playerIds
+            .map((id) => playerMap.get(id))
+            .filter(Boolean)
+            .slice(0, MAX_COMPARE_PLAYERS);
+
+        setSelectedPlayers(orderedPlayers);
+
+        if (FORMAT_OPTIONS.some((option) => option.key === preset.formatFilter)) {
+            setFormatFilter(preset.formatFilter);
+        }
+
+        const filters = preset.filters || {};
+        setRoleFilter(String(filters.roleFilter || 'all'));
+        setCountryFilter(String(filters.countryFilter || 'all'));
+        setMinMatches(Math.max(0, Number(filters.minMatches) || 0));
+
+        const validMetric = METRIC_OPTIONS.some((option) => option.key === filters.sortMetric)
+            ? filters.sortMetric
+            : 'formScore';
+        setSortMetric(validMetric);
+        setSortDirection(filters.sortDirection === 'asc' ? 'asc' : 'desc');
+
+        const missingCount = preset.playerIds.length - orderedPlayers.length;
+        setPresetStatus(
+            missingCount > 0
+                ? `Preset loaded with ${missingCount} missing player(s) unavailable in cache.`
+                : `Preset "${preset.name}" loaded.`
+        );
+    }, [playerPool, searchResults, selectedPlayers, hydratedPlayers]);
+
+    const deletePreset = (presetId) => {
+        setPresets((prev) => prev.filter((preset) => preset.id !== presetId));
+        setPresetStatus('Preset deleted.');
+    };
+
+    const clearPresets = () => {
+        setPresets([]);
+        setPresetStatus('All presets cleared.');
+    };
+
     useEffect(() => {
         const metric = METRIC_OPTIONS.find((entry) => entry.key === sortMetric);
         if (!metric) return;
         setSortDirection(metric.better === 'lower' ? 'asc' : 'desc');
     }, [sortMetric]);
+
+    useEffect(() => {
+        if (!presetStatus) return undefined;
+        const timer = setTimeout(() => setPresetStatus(''), 2200);
+        return () => clearTimeout(timer);
+    }, [presetStatus]);
 
     const comparisonRows = useMemo(() => {
         return comparisonPlayers.map((player) => buildComparisonRow(player, formatFilter));
@@ -653,6 +828,70 @@ const CrickJudge = () => {
                                             </div>
                                         );
                                     })}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Saved Presets</h3>
+                                <button
+                                    onClick={clearPresets}
+                                    disabled={!presets.length}
+                                    className="text-xs px-2 py-1 rounded border border-slate-600 text-slate-300 hover:bg-slate-800 disabled:text-slate-500 disabled:border-slate-700"
+                                >
+                                    Clear All
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={presetName}
+                                    onChange={(event) => setPresetName(event.target.value)}
+                                    placeholder="Preset name (optional)"
+                                    maxLength={80}
+                                    className="flex-1 px-3 py-2 rounded-lg bg-slate-900/70 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-400/60"
+                                />
+                                <button
+                                    onClick={saveCurrentPreset}
+                                    disabled={selectedPlayers.length < 2}
+                                    className="px-3 py-2 rounded-lg text-xs font-bold border border-indigo-400/40 text-indigo-300 hover:bg-indigo-500/10 disabled:text-slate-500 disabled:border-slate-700"
+                                >
+                                    Save Current
+                                </button>
+                            </div>
+
+                            {presetStatus && <p className="mt-2 text-xs text-slate-400">{presetStatus}</p>}
+
+                            {!presets.length ? (
+                                <p className="mt-3 text-xs text-slate-500">No saved presets yet. Save your current comparison to reuse it later.</p>
+                            ) : (
+                                <div className="mt-3 max-h-56 overflow-y-auto space-y-2">
+                                    {presets.map((preset) => (
+                                        <div key={preset.id} className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="text-sm font-semibold text-white truncate">{preset.name}</p>
+                                                <div className="flex items-center gap-1.5">
+                                                    <button
+                                                        onClick={() => loadPreset(preset)}
+                                                        className="px-2 py-1 rounded text-[11px] font-bold border border-blue-400/40 text-blue-300 hover:bg-blue-500/10"
+                                                    >
+                                                        Load
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deletePreset(preset.id)}
+                                                        className="px-2 py-1 rounded text-[11px] font-bold border border-rose-400/40 text-rose-300 hover:bg-rose-500/10"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <p className="mt-1 text-[11px] text-slate-500 truncate">
+                                                {preset.formatFilter.toUpperCase()} • {preset.playerIds.length} players • Updated {new Date(preset.updatedAt).toLocaleString()}
+                                            </p>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
