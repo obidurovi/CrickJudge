@@ -474,22 +474,26 @@ const VenueIntelligence = () => {
         ? analysis.directVenueRecord.samples
         : [];
 
-    if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Loading Venues...</div>;
-    if (!selectedVenue) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">No Venues Found. Run backend seeding with: npm run seed:venues</div>;
+    if (loading) return <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center text-white">Loading Venues...</div>;
+    if (!selectedVenue) return <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center text-white">No Venues Found. Run backend seeding with: npm run seed:venues</div>;
 
     return (
-        <div className='min-h-screen bg-slate-950 font-sans text-slate-200 flex flex-col'>
+        <div className='relative min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200 flex flex-col'>
+             <div className="pointer-events-none absolute inset-0">
+                <div className="absolute -top-16 left-8 w-72 h-72 bg-blue-500/12 rounded-full blur-3xl"></div>
+                <div className="absolute top-24 right-6 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl"></div>
+            </div>
              {/* Navbar */}
              <nav className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-lg border-b border-white/10 shadow-lg">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-20">
                         <div className="flex items-center gap-3">
-                            <Link to="/" className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg hover:scale-105 transition-transform">
+                            <Link to="/" className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg hover:scale-105 transition-transform">
                                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                             </Link>
                             <div>
                                 <h1 className="text-2xl font-bold text-white tracking-tight">Venue Intelligence</h1>
-                                <p className="text-xs text-blue-400 font-medium tracking-wide flex items-center gap-1.5">
+                                <p className="text-xs text-cyan-300 font-medium tracking-wide flex items-center gap-1.5">
                                     <span className={`w-1.5 h-1.5 rounded-full ${sseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-yellow-400'}`}></span>
                                     STADIUM ANALYTICS
                                 </p>
@@ -500,13 +504,13 @@ const VenueIntelligence = () => {
                 </div>
             </nav>
 
-            <div className="flex-1 max-w-7xl mx-auto w-full p-6 md:p-8">
+            <div className="relative flex-1 max-w-7xl mx-auto w-full p-6 md:p-8">
                 
                 {/* Header Section */}
                 <div className="mb-8">
                     <h2 className="text-3xl font-bold text-white mb-2">Venue Command Center</h2>
                     <p className="text-slate-400">Strategic pitch reports and stadium analytics.</p>
-                    <div className="mt-4 bg-slate-900/70 border border-white/10 rounded-2xl p-4">
+                    <div className="mt-4 surface-glass rounded-2xl p-4">
                         <p className="text-xs uppercase tracking-wider font-bold text-slate-300 mb-3">Admin Tools</p>
                         <div className="flex flex-col md:flex-row gap-3">
                             <input
@@ -542,27 +546,29 @@ const VenueIntelligence = () => {
                 </div>
 
                 {/* Venue Selector */}
-                <div className="flex gap-4 overflow-x-auto pb-6 mb-6 custom-scrollbar">
+                <div className="surface-glass rounded-2xl p-4 mb-6 app-scroll">
+                <div className="flex gap-4 overflow-x-auto pb-1">
                     {venues.map(venue => (
                         <button
                             key={venue.id}
                             onClick={() => setSelectedVenue(venue)}
                             className={`px-6 py-3 rounded-full whitespace-nowrap text-sm font-bold transition-all ${
                                 selectedVenue.id === venue.id
-                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
-                                : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                                ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-cyan-900/30'
+                                : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-transparent hover:border-white/15'
                             }`}
                         >
                             {venue.name}
                         </button>
                     ))}
                 </div>
+                </div>
 
                 {/* Grid Content */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     
                     {/* Card 1: Stadium Info */}
-                    <div className="bg-slate-900 rounded-3xl p-1 border border-white/5 shadow-xl overflow-hidden group">
+                    <div className="surface-glass rounded-3xl p-1 overflow-hidden group">
                         <div className="relative h-48 rounded-t-3xl overflow-hidden">
                             <img src={selectedVenue.image} alt={selectedVenue.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent"></div>
@@ -586,7 +592,7 @@ const VenueIntelligence = () => {
                     </div>
 
                     {/* Card 2: Wicket Distribution (Donut Chart) */}
-                    <div className="bg-slate-900 rounded-3xl p-6 border border-white/5 shadow-xl flex flex-col items-center justify-center relative">
+                    <div className="surface-glass rounded-3xl p-6 flex flex-col items-center justify-center relative">
                         <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-6 w-full text-left flex items-center gap-2">
                             <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                             Wicket Distribution
@@ -626,7 +632,7 @@ const VenueIntelligence = () => {
                     </div>
 
                     {/* Card 3: Average Scores (Bar Chart) */}
-                    <div className="bg-slate-900 rounded-3xl p-6 border border-white/5 shadow-xl flex flex-col">
+                    <div className="surface-glass rounded-3xl p-6 flex flex-col">
                         <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-6 flex items-center gap-2">
                             <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
                             Average Scores
@@ -667,7 +673,7 @@ const VenueIntelligence = () => {
 
                 </div>
 
-                <div className="mt-10 bg-slate-900/80 border border-white/10 rounded-3xl p-6">
+                <div className="mt-10 surface-glass rounded-3xl p-6">
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                         <div>
                             <h3 className="text-2xl font-bold text-white">Player x Venue Lab</h3>

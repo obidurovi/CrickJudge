@@ -39,8 +39,9 @@ const MatchCard = ({ match, onClick }) => {
     return (
         <div
             onClick={() => onClick(match)}
-            className="bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 p-5 hover:bg-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer group"
+            className="relative overflow-hidden surface-glass rounded-2xl p-5 hover:-translate-y-1 hover:border-cyan-300/30 hover:shadow-2xl hover:shadow-cyan-950/30 transition-all duration-300 cursor-pointer group"
         >
+            <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent"></div>
             <div className="flex items-center justify-between mb-4">
                 <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border ${typeBadge[match.matchType] || 'bg-slate-700/50 text-slate-400 border-slate-600'}`}>
                     {match.matchType}
@@ -225,7 +226,11 @@ const LiveMatches = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center">
+            <div className="relative min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center">
+                <div className="pointer-events-none absolute inset-0">
+                    <div className="absolute -top-20 left-6 w-72 h-72 bg-red-500/10 rounded-full blur-3xl"></div>
+                    <div className="absolute top-24 right-8 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl"></div>
+                </div>
                 <div className="text-center">
                     <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p className="text-slate-400 font-medium">Loading live matches...</p>
@@ -236,7 +241,11 @@ const LiveMatches = () => {
 
     if (error === 'API_KEY_MISSING') {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200">
+            <div className="relative min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200">
+                <div className="pointer-events-none absolute inset-0">
+                    <div className="absolute -top-16 left-10 w-72 h-72 bg-red-500/12 rounded-full blur-3xl"></div>
+                    <div className="absolute top-20 right-6 w-64 h-64 bg-orange-400/10 rounded-full blur-3xl"></div>
+                </div>
                 <nav className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-lg border-b border-white/10 shadow-lg">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="flex items-center justify-between h-20">
@@ -254,7 +263,7 @@ const LiveMatches = () => {
                     </div>
                 </nav>
                 <div className="max-w-2xl mx-auto px-4 py-20">
-                    <div className="bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 p-8 text-center">
+                    <div className="surface-glass rounded-3xl p-8 text-center">
                         <div className="w-16 h-16 bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-yellow-500/20">
                             <svg className="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
                         </div>
@@ -280,7 +289,11 @@ const LiveMatches = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200">
+        <div className="relative min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 font-sans text-slate-200">
+            <div className="pointer-events-none absolute inset-0">
+                <div className="absolute -top-12 left-12 w-72 h-72 bg-red-500/12 rounded-full blur-3xl"></div>
+                <div className="absolute top-24 right-8 w-64 h-64 bg-cyan-500/12 rounded-full blur-3xl"></div>
+            </div>
             <nav className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-lg border-b border-white/10 shadow-lg">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-20">
@@ -314,10 +327,16 @@ const LiveMatches = () => {
                 </div>
             </nav>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="mb-8">
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="mb-8 surface-glass rounded-3xl p-6">
                     <h2 className="text-3xl font-bold text-white mb-2">Match Center</h2>
-                    <p className="text-slate-400">Live scores, upcoming fixtures, and recent results.</p>
+                    <p className="text-slate-300">Live scores, upcoming fixtures, and recent results.</p>
+                    <div className="mt-4 flex items-center gap-2 flex-wrap">
+                        <span className="px-3 py-1 rounded-full text-[11px] font-semibold border border-cyan-400/30 bg-cyan-500/10 text-cyan-200">Total {counts.all}</span>
+                        <span className="px-3 py-1 rounded-full text-[11px] font-semibold border border-red-400/30 bg-red-500/10 text-red-200">Live {counts.live}</span>
+                        <span className="px-3 py-1 rounded-full text-[11px] font-semibold border border-blue-400/30 bg-blue-500/10 text-blue-200">Upcoming {counts.upcoming}</span>
+                        <span className="px-3 py-1 rounded-full text-[11px] font-semibold border border-slate-400/30 bg-slate-500/10 text-slate-300">Completed {counts.completed}</span>
+                    </div>
                 </div>
 
                 {error && (
@@ -328,15 +347,16 @@ const LiveMatches = () => {
                     </div>
                 )}
 
-                <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-8">
-                    <div className="flex items-center gap-1 bg-slate-800/50 p-1 rounded-xl border border-white/5">
+                <div className="mb-8 surface-glass rounded-2xl p-4">
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                    <div className="flex items-center gap-1 bg-slate-900/65 p-1 rounded-xl border border-white/10">
                         {statusFilters.map(f => (
                             <button
                                 key={f.key}
                                 onClick={() => setStatusFilter(f.key)}
                                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                                     statusFilter === f.key
-                                        ? 'bg-white text-slate-900 shadow-lg'
+                                        ? 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-cyan-900/30'
                                         : 'text-slate-400 hover:text-white hover:bg-white/5'
                                 }`}
                             >
@@ -356,19 +376,22 @@ const LiveMatches = () => {
                                 onClick={() => setTypeFilter(t)}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                                     typeFilter === t
-                                        ? 'bg-blue-600 text-white'
-                                        : 'text-slate-500 hover:text-white hover:bg-white/5'
+                                        ? 'bg-cyan-500/20 border border-cyan-400/30 text-cyan-200'
+                                        : 'text-slate-500 hover:text-white hover:bg-white/5 border border-transparent'
                                 }`}
                             >
                                 {t}
                             </button>
                         ))}
                     </div>
+                    </div>
                 </div>
 
                 {filteredMatches.length === 0 ? (
-                    <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/10 border-dashed">
-                        <div className="text-5xl mb-4">🏏</div>
+                    <div className="text-center py-20 surface-glass rounded-3xl border border-white/10 border-dashed">
+                        <div className="mx-auto mb-4 w-16 h-16 rounded-2xl border border-blue-400/30 bg-blue-500/10 flex items-center justify-center">
+                            <svg className="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        </div>
                         <h3 className="text-xl font-bold text-white mb-2">No Matches Found</h3>
                         <p className="text-slate-400 text-sm">
                             {matches.length === 0
