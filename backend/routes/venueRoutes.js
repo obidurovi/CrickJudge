@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { getVenues, seedVenues } = require('../controllers/venueController');
+const { getVenues, seedVenues, getVenuePlayerCrossAnalysis } = require('../controllers/venueController');
 
+router.get('/player-cross-analysis', getVenuePlayerCrossAnalysis);
 router.get('/', getVenues);
 router.post('/admin/seed', seedVenues);
 

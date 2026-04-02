@@ -3,6 +3,35 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import useSSE from '../hooks/useSSE';
 
+const API_BASE = 'http://localhost:5000/api';
+
+const ANALYSIS_FORMATS = [
+    { key: 'overall', label: 'Overall' },
+    { key: 'test', label: 'Test' },
+    { key: 'odi', label: 'ODI' },
+    { key: 't20', label: 'T20' }
+];
+
+const toNumber = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const asFixed = (value, digits = 1) => toNumber(value, 0).toFixed(digits);
+
+const impactClass = (impact) => {
+    if (impact > 2) return 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10';
+    if (impact < -2) return 'text-rose-300 border-rose-500/30 bg-rose-500/10';
+    return 'text-slate-300 border-slate-500/30 bg-slate-500/10';
+};
+
+const fitBandClass = (fitBand) => {
+    if (fitBand === 'Elite Fit') return 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10';
+    if (fitBand === 'Strong Fit') return 'text-blue-300 border-blue-500/30 bg-blue-500/10';
+    if (fitBand === 'Balanced Fit') return 'text-amber-300 border-amber-500/30 bg-amber-500/10';
+    return 'text-rose-300 border-rose-500/30 bg-rose-500/10';
+};
+
 const VenueIntelligence = () => {
     const [venues, setVenues] = useState([]);
     const [selectedVenue, setSelectedVenue] = useState(null);
@@ -11,10 +40,19 @@ const VenueIntelligence = () => {
     const [adminSeedKey, setAdminSeedKey] = useState('');
     const [replaceExisting, setReplaceExisting] = useState(false);
     const [seedStatus, setSeedStatus] = useState(null);
+    const [playerQuery, setPlayerQuery] = useState('');
+    const [playerOptions, setPlayerOptions] = useState([]);
+    const [selectedPlayer, setSelectedPlayer] = useState(null);
+    const [searchingPlayers, setSearchingPlayers] = useState(false);
+    const [analysisFormat, setAnalysisFormat] = useState('overall');
+    const [analysisLoading, setAnalysisLoading] = useState(false);
+    const [analysisError, setAnalysisError] = useState('');
+    const [crossAnalysis, setCrossAnalysis] = useState(null);
+    const [copyStatus, setCopyStatus] = useState('');
 
     const fetchVenues = useCallback(async () => {
         try {
-            const { data } = await axios.get('http://localhost:5000/api/venues');
+            const { data } = await axios.get(`${API_BASE}/venues`);
             setVenues(data);
             setSelectedVenue(prev => {
                 if (data.length === 0) return null;
@@ -32,6 +70,110 @@ const VenueIntelligence = () => {
         fetchVenues();
     }, [fetchVenues]);
 
+    useEffect(() => {
+        const query = playerQuery.trim();
+        if (query.length < 2) {
+            setPlayerOptions([]);
+            setSearchingPlayers(false);
+            return;
+        }
+
+        let active = true;
+        const timer = setTimeout(async () => {
+            setSearchingPlayers(true);
+            try {
+                const { data } = await axios.get(`${API_BASE}/players/search`, { params: { q: query } });
+                if (!active) return;
+                const list = Array.isArray(data?.players) ? data.players.slice(0, 8) : [];
+                setPlayerOptions(list);
+            } catch {
+                if (!active) return;
+                setPlayerOptions([]);
+            } finally {
+                if (active) setSearchingPlayers(false);
+            }
+        }, 280);
+
+        return () => {
+            active = false;
+            clearTimeout(timer);
+        };
+    }, [playerQuery]);
+
+    const selectPlayer = (player) => {
+        setSelectedPlayer(player);
+        setPlayerQuery(player?.name || '');
+        setPlayerOptions([]);
+        setAnalysisError('');
+    };
+
+    const runCrossAnalysis = useCallback(async () => {
+        const playerId = selectedPlayer?.apiId || selectedPlayer?._id;
+        if (!playerId || !selectedVenue?.id) {
+            setAnalysisError('Choose a player and venue before running analysis.');
+            return;
+        }
+
+        try {
+            setAnalysisLoading(true);
+            setAnalysisError('');
+
+            const { data } = await axios.get(`${API_BASE}/venues/player-cross-analysis`, {
+                params: {
+                    playerId,
+                    venueId: selectedVenue.id,
+                    format: analysisFormat
+                }
+            });
+
+            setCrossAnalysis(data);
+        } catch (error) {
+            const message = error?.response?.data?.message || 'Unable to run venue-player cross analysis';
+            setAnalysisError(message);
+            setCrossAnalysis(null);
+        } finally {
+            setAnalysisLoading(false);
+        }
+    }, [analysisFormat, selectedPlayer, selectedVenue]);
+
+    const copyCrossSummary = async () => {
+        if (!crossAnalysis?.analysis) return;
+
+        const analysis = crossAnalysis.analysis;
+        const playerName = crossAnalysis?.player?.name || selectedPlayer?.name || 'Player';
+        const venueName = crossAnalysis?.venue?.name || selectedVenue?.name || 'Venue';
+
+        const summary = [
+            `${playerName} at ${venueName} (${analysis.format?.label || analysisFormat.toUpperCase()})`,
+            `Fit Score: ${asFixed(analysis.overallFitScore)} (${analysis.fitBand})`,
+            `Confidence: ${asFixed(analysis.confidence)}%`,
+            `Projected: ${asFixed(analysis?.expected?.battingRuns)} runs, ${asFixed(analysis?.expected?.wickets, 2)} wickets, Econ ${asFixed(analysis?.expected?.economy, 2)}`,
+            `Role: ${analysis.recommendedRole}`,
+            `Narrative: ${analysis.narrative}`
+        ].join('\n');
+
+        try {
+            await navigator.clipboard.writeText(summary);
+            setCopyStatus('Summary copied to clipboard.');
+        } catch {
+            setCopyStatus('Clipboard permission unavailable.');
+        }
+    };
+
+    const exportCrossJson = () => {
+        if (!crossAnalysis) return;
+
+        const blob = new Blob([JSON.stringify(crossAnalysis, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'venue-player-cross-analysis.json';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     const handleSeedVenues = async () => {
         try {
             setSeeding(true);
@@ -43,7 +185,7 @@ const VenueIntelligence = () => {
             }
 
             const { data } = await axios.post(
-                'http://localhost:5000/api/venues/admin/seed',
+                `${API_BASE}/venues/admin/seed`,
                 { replaceExisting },
                 { headers }
             );
@@ -65,6 +207,28 @@ const VenueIntelligence = () => {
     // SSE: connect to sync channel for live status indicator
     const sseHandlers = useMemo(() => ({}), []);
     const { connected: sseConnected } = useSSE('/sync', sseHandlers);
+
+    const analysis = crossAnalysis?.analysis || null;
+
+    const indexRows = useMemo(() => {
+        if (!analysis?.indices) return [];
+
+        return [
+            { key: 'battingSuitability', label: 'Batting Suitability', value: analysis.indices.battingSuitability, color: 'bg-blue-500' },
+            { key: 'bowlingSuitability', label: 'Bowling Suitability', value: analysis.indices.bowlingSuitability, color: 'bg-emerald-500' },
+            { key: 'paceAlignment', label: 'Pace Alignment', value: analysis.indices.paceAlignment, color: 'bg-rose-500' },
+            { key: 'spinAlignment', label: 'Spin Alignment', value: analysis.indices.spinAlignment, color: 'bg-indigo-500' },
+            { key: 'scoringEnvironment', label: 'Scoring Environment', value: analysis.indices.scoringEnvironment, color: 'bg-amber-500' },
+            { key: 'chaseIndex', label: 'Chase Index', value: analysis.indices.chaseIndex, color: 'bg-cyan-500' },
+            { key: 'powerplayImpact', label: 'Powerplay Impact', value: analysis.indices.powerplayImpact, color: 'bg-violet-500' },
+            { key: 'deathOversImpact', label: 'Death Overs Impact', value: analysis.indices.deathOversImpact, color: 'bg-fuchsia-500' }
+        ];
+    }, [analysis]);
+
+    const factorRows = Array.isArray(analysis?.factors) ? analysis.factors : [];
+    const directSamples = Array.isArray(analysis?.directVenueRecord?.samples)
+        ? analysis.directVenueRecord.samples
+        : [];
 
     if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Loading Venues...</div>;
     if (!selectedVenue) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">No Venues Found. Run backend seeding with: npm run seed:venues</div>;
@@ -257,6 +421,293 @@ const VenueIntelligence = () => {
                         </div>
                     </div>
 
+                </div>
+
+                <div className="mt-10 bg-slate-900/80 border border-white/10 rounded-3xl p-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div>
+                            <h3 className="text-2xl font-bold text-white">Player x Venue Lab</h3>
+                            <p className="text-sm text-slate-400 mt-1">How does a specific player project at this ground? Blend venue profile, player stats, and scorecard evidence.</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                                onClick={copyCrossSummary}
+                                disabled={!analysis}
+                                className="px-3 py-2 text-xs font-semibold rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500/20"
+                            >
+                                Copy Summary
+                            </button>
+                            <button
+                                onClick={exportCrossJson}
+                                disabled={!crossAnalysis}
+                                className="px-3 py-2 text-xs font-semibold rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-500/20"
+                            >
+                                Export JSON
+                            </button>
+                        </div>
+                    </div>
+
+                    {copyStatus && (
+                        <p className="mt-3 text-xs text-blue-300">{copyStatus}</p>
+                    )}
+
+                    <div className="mt-5 grid grid-cols-1 lg:grid-cols-6 gap-3 items-end">
+                        <div className="lg:col-span-3 relative">
+                            <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Player Search</p>
+                            <input
+                                value={playerQuery}
+                                onChange={(event) => {
+                                    setPlayerQuery(event.target.value);
+                                    setSelectedPlayer(null);
+                                }}
+                                placeholder="Search player name"
+                                className="w-full px-3 py-2 rounded-lg bg-slate-800/80 border border-white/10 text-sm text-white placeholder-slate-500"
+                            />
+                            {searchingPlayers && (
+                                <p className="absolute right-3 top-9 text-[10px] text-slate-500">Searching...</p>
+                            )}
+                            {playerOptions.length > 0 && (
+                                <div className="absolute z-20 mt-1 w-full rounded-lg border border-white/10 bg-slate-900 shadow-xl overflow-hidden">
+                                    {playerOptions.map((player) => (
+                                        <button
+                                            key={player.apiId || player._id || player.name}
+                                            onClick={() => selectPlayer(player)}
+                                            className="w-full text-left px-3 py-2 border-b border-white/5 last:border-b-0 hover:bg-white/5"
+                                        >
+                                            <p className="text-sm text-white font-semibold">{player.name}</p>
+                                            <p className="text-[11px] text-slate-400">{player.country || 'Unknown'} · {player.role || 'Unknown Role'}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="lg:col-span-2">
+                            <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Format Lens</p>
+                            <div className="grid grid-cols-2 gap-2">
+                                {ANALYSIS_FORMATS.map((format) => (
+                                    <button
+                                        key={format.key}
+                                        onClick={() => setAnalysisFormat(format.key)}
+                                        className={`px-2 py-2 text-xs rounded-lg border ${analysisFormat === format.key ? 'bg-blue-500/20 border-blue-500/40 text-blue-200' : 'bg-slate-800/70 border-white/10 text-slate-400 hover:text-white'}`}
+                                    >
+                                        {format.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <button
+                                onClick={runCrossAnalysis}
+                                disabled={analysisLoading || !selectedPlayer}
+                                className="w-full px-3 py-2.5 rounded-lg text-sm font-semibold bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400"
+                            >
+                                {analysisLoading ? 'Analyzing...' : 'Run Analysis'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {selectedPlayer && (
+                        <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-black/20 text-xs text-slate-300">
+                            <span className="font-semibold text-white">Selected:</span>
+                            <span>{selectedPlayer.name}</span>
+                            <span className="text-slate-500">{selectedPlayer.country || 'Unknown'}</span>
+                        </div>
+                    )}
+
+                    {analysisError && (
+                        <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+                            {analysisError}
+                        </div>
+                    )}
+
+                    {crossAnalysis?._notice && (
+                        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                            {crossAnalysis._notice}
+                        </div>
+                    )}
+
+                    {analysisLoading && (
+                        <div className="mt-6 flex items-center gap-3 text-sm text-slate-400">
+                            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                            Building venue-player projection model...
+                        </div>
+                    )}
+
+                    {!analysisLoading && analysis && (
+                        <>
+                            <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                <div className="bg-black/20 border border-white/10 rounded-2xl p-4">
+                                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Overall Fit Score</p>
+                                    <div className="flex items-center gap-3">
+                                        <p className="text-3xl font-bold text-white">{asFixed(analysis.overallFitScore)}</p>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full border uppercase tracking-wider font-semibold ${fitBandClass(analysis.fitBand)}`}>
+                                            {analysis.fitBand}
+                                        </span>
+                                    </div>
+                                    <div className="mt-3 h-2 rounded-full bg-slate-800 overflow-hidden">
+                                        <div
+                                            className="h-full bg-blue-500"
+                                            style={{ width: `${Math.max(0, Math.min(100, toNumber(analysis.overallFitScore, 0)))}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-black/20 border border-white/10 rounded-2xl p-4">
+                                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Confidence</p>
+                                    <p className="text-3xl font-bold text-white">{asFixed(analysis.confidence)}%</p>
+                                    <p className="text-xs text-slate-400 mt-2">Direct venue matches: {analysis?.directVenueRecord?.matches || 0}</p>
+                                    <p className="text-xs text-slate-400">Evidence matches scanned: {crossAnalysis?.evidenceCoverage?.matchesScanned || 0}</p>
+                                </div>
+
+                                <div className="bg-black/20 border border-white/10 rounded-2xl p-4">
+                                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Recommended Usage</p>
+                                    <p className="text-sm font-semibold text-white leading-relaxed">{analysis.recommendedRole}</p>
+                                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">{analysis.narrative}</p>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 bg-black/20 border border-white/10 rounded-2xl p-4">
+                                <h4 className="text-sm font-bold text-white mb-4 uppercase tracking-wider">Projected Match Output</h4>
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-[10px] uppercase text-slate-500">Runs</p>
+                                        <p className="text-xl font-bold text-blue-300">{asFixed(analysis?.expected?.battingRuns)}</p>
+                                    </div>
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-[10px] uppercase text-slate-500">Strike Rate</p>
+                                        <p className="text-xl font-bold text-indigo-300">{asFixed(analysis?.expected?.strikeRate)}</p>
+                                    </div>
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-[10px] uppercase text-slate-500">Wickets</p>
+                                        <p className="text-xl font-bold text-emerald-300">{asFixed(analysis?.expected?.wickets, 2)}</p>
+                                    </div>
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-[10px] uppercase text-slate-500">Economy</p>
+                                        <p className="text-xl font-bold text-amber-300">{asFixed(analysis?.expected?.economy, 2)}</p>
+                                    </div>
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-[10px] uppercase text-slate-500">Fantasy Pts</p>
+                                        <p className="text-xl font-bold text-violet-300">{asFixed(analysis?.expected?.fantasyPoints)}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 bg-black/20 border border-white/10 rounded-2xl p-4">
+                                <h4 className="text-sm font-bold text-white mb-4 uppercase tracking-wider">Compatibility Indices</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {indexRows.map((row) => (
+                                        <div key={row.key} className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <p className="text-xs text-slate-300">{row.label}</p>
+                                                <span className="text-xs font-mono text-slate-200">{asFixed(row.value)}%</span>
+                                            </div>
+                                            <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                                                <div
+                                                    className={`h-full ${row.color}`}
+                                                    style={{ width: `${Math.max(0, Math.min(100, toNumber(row.value, 0)))}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="mt-6 grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                <div className="bg-black/20 border border-white/10 rounded-2xl p-4">
+                                    <h4 className="text-sm font-bold text-white mb-3 uppercase tracking-wider">Explainability Factors</h4>
+                                    <div className="space-y-2">
+                                        {factorRows.map((factor, index) => (
+                                            <div key={`${factor.label}-${index}`} className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <p className="text-sm font-semibold text-white">{factor.label}</p>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${impactClass(toNumber(factor.impact, 0))}`}>
+                                                        {toNumber(factor.impact, 0) >= 0 ? '+' : ''}{asFixed(factor.impact)}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-blue-300 mt-1">{factor.value}</p>
+                                                <p className="text-xs text-slate-400 mt-1">{factor.explanation}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="bg-black/20 border border-white/10 rounded-2xl p-4">
+                                    <h4 className="text-sm font-bold text-white mb-3 uppercase tracking-wider">Insights and Risks</h4>
+
+                                    <div className="mb-3">
+                                        <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Quick Insights</p>
+                                        <ul className="space-y-1">
+                                            {(analysis.insights || []).map((insight, index) => (
+                                                <li key={`${insight}-${index}`} className="text-sm text-slate-300">- {insight}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Risk Flags</p>
+                                        {Array.isArray(analysis.riskFlags) && analysis.riskFlags.length > 0 ? (
+                                            <div className="flex flex-wrap gap-2">
+                                                {analysis.riskFlags.map((risk, index) => (
+                                                    <span key={`${risk}-${index}`} className="text-xs px-2 py-1 rounded-full border border-rose-500/30 bg-rose-500/10 text-rose-300">
+                                                        {risk}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-emerald-300">No major risk flags detected for the selected lens.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 bg-black/20 border border-white/10 rounded-2xl p-4">
+                                <h4 className="text-sm font-bold text-white mb-3 uppercase tracking-wider">Direct Venue Record</h4>
+
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-slate-800 text-slate-300">Matches: {analysis?.directVenueRecord?.matches || 0}</span>
+                                    <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-slate-800 text-slate-300">Runs: {analysis?.directVenueRecord?.runs || 0}</span>
+                                    <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-slate-800 text-slate-300">Wickets: {analysis?.directVenueRecord?.wickets || 0}</span>
+                                    <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-slate-800 text-slate-300">SR: {asFixed(analysis?.directVenueRecord?.strikeRate, 2)}</span>
+                                    <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-slate-800 text-slate-300">Econ: {asFixed(analysis?.directVenueRecord?.economy, 2)}</span>
+                                    <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-slate-800 text-slate-300">Best Bat: {analysis?.directVenueRecord?.bestBatting || 0}</span>
+                                    <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-slate-800 text-slate-300">Best Bowl: {analysis?.directVenueRecord?.bestBowling || '0/0'}</span>
+                                </div>
+
+                                {directSamples.length === 0 ? (
+                                    <p className="text-sm text-slate-500">No direct venue samples found in current scorecard coverage.</p>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="text-slate-400 border-b border-white/10">
+                                                    <th className="text-left py-2 pr-2">Match</th>
+                                                    <th className="text-right py-2 px-2">Runs</th>
+                                                    <th className="text-right py-2 px-2">Balls</th>
+                                                    <th className="text-right py-2 px-2">SR</th>
+                                                    <th className="text-right py-2 px-2">Wkts</th>
+                                                    <th className="text-right py-2 px-2">Econ</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {directSamples.map((sample) => (
+                                                    <tr key={sample.matchId} className="border-b border-white/5 last:border-b-0">
+                                                        <td className="py-2 pr-2 text-slate-300">{sample.matchName}</td>
+                                                        <td className="py-2 px-2 text-right font-mono text-blue-200">{sample.runs}</td>
+                                                        <td className="py-2 px-2 text-right font-mono text-slate-300">{sample.balls}</td>
+                                                        <td className="py-2 px-2 text-right font-mono text-indigo-200">{asFixed(sample.strikeRate, 2)}</td>
+                                                        <td className="py-2 px-2 text-right font-mono text-emerald-200">{sample.wickets}</td>
+                                                        <td className="py-2 px-2 text-right font-mono text-amber-200">{asFixed(sample.economy, 2)}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
