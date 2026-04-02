@@ -12,6 +12,8 @@ const ANALYSIS_FORMATS = [
     { key: 't20', label: 'T20' }
 ];
 
+const MAX_COMPARE_PLAYERS = 6;
+
 const toNumber = (value, fallback = 0) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
@@ -32,6 +34,8 @@ const fitBandClass = (fitBand) => {
     return 'text-rose-300 border-rose-500/30 bg-rose-500/10';
 };
 
+const playerIdentifier = (player) => String(player?.apiId || player?._id || player?.id || '').trim();
+
 const VenueIntelligence = () => {
     const [venues, setVenues] = useState([]);
     const [selectedVenue, setSelectedVenue] = useState(null);
@@ -49,6 +53,12 @@ const VenueIntelligence = () => {
     const [analysisError, setAnalysisError] = useState('');
     const [crossAnalysis, setCrossAnalysis] = useState(null);
     const [copyStatus, setCopyStatus] = useState('');
+    const [comparePlayers, setComparePlayers] = useState([]);
+    const [compareResults, setCompareResults] = useState([]);
+    const [compareLoading, setCompareLoading] = useState(false);
+    const [compareError, setCompareError] = useState('');
+    const [compareStatus, setCompareStatus] = useState('');
+    const [compareSortBy, setCompareSortBy] = useState('fit');
 
     const fetchVenues = useCallback(async () => {
         try {
@@ -100,11 +110,68 @@ const VenueIntelligence = () => {
         };
     }, [playerQuery]);
 
+    useEffect(() => {
+        setCompareResults([]);
+        setCompareError('');
+        setCompareStatus('');
+    }, [analysisFormat, selectedVenue?.id]);
+
     const selectPlayer = (player) => {
         setSelectedPlayer(player);
         setPlayerQuery(player?.name || '');
         setPlayerOptions([]);
         setAnalysisError('');
+    };
+
+    const addSelectedToCompare = () => {
+        if (!selectedPlayer) {
+            setCompareError('Select a player first, then add to compare.');
+            return;
+        }
+
+        const id = playerIdentifier(selectedPlayer);
+        if (!id) {
+            setCompareError('This player does not have a usable identifier yet.');
+            return;
+        }
+
+        setCompareError('');
+        setCompareStatus('');
+
+        setComparePlayers((prev) => {
+            if (prev.some((player) => player.id === id)) {
+                setCompareStatus('Player already exists in compare shortlist.');
+                return prev;
+            }
+
+            if (prev.length >= MAX_COMPARE_PLAYERS) {
+                setCompareStatus(`Maximum ${MAX_COMPARE_PLAYERS} players allowed in compare mode.`);
+                return prev;
+            }
+
+            const next = [
+                ...prev,
+                {
+                    id,
+                    apiId: selectedPlayer?.apiId || null,
+                    name: selectedPlayer?.name || 'Unknown',
+                    country: selectedPlayer?.country || 'Unknown',
+                    role: selectedPlayer?.role || 'Unknown'
+                }
+            ];
+            return next;
+        });
+    };
+
+    const removeComparePlayer = (id) => {
+        setComparePlayers((prev) => prev.filter((player) => player.id !== id));
+    };
+
+    const clearCompare = () => {
+        setComparePlayers([]);
+        setCompareResults([]);
+        setCompareError('');
+        setCompareStatus('');
     };
 
     const runCrossAnalysis = useCallback(async () => {
@@ -135,6 +202,61 @@ const VenueIntelligence = () => {
             setAnalysisLoading(false);
         }
     }, [analysisFormat, selectedPlayer, selectedVenue]);
+
+    const runCompareAnalysis = useCallback(async () => {
+        if (!selectedVenue?.id) {
+            setCompareError('Select a venue before running compare analysis.');
+            return;
+        }
+
+        if (!comparePlayers.length) {
+            setCompareError('Add at least one player to the compare shortlist.');
+            return;
+        }
+
+        try {
+            setCompareLoading(true);
+            setCompareError('');
+            setCompareStatus('');
+
+            const requests = comparePlayers.map(async (player) => {
+                try {
+                    const { data } = await axios.get(`${API_BASE}/venues/player-cross-analysis`, {
+                        params: {
+                            playerId: player.apiId || player.id,
+                            venueId: selectedVenue.id,
+                            format: analysisFormat
+                        }
+                    });
+                    return { ok: true, data };
+                } catch (error) {
+                    return {
+                        ok: false,
+                        player,
+                        message: error?.response?.data?.message || 'Failed to evaluate player'
+                    };
+                }
+            });
+
+            const settled = await Promise.all(requests);
+            const successful = settled.filter((entry) => entry.ok).map((entry) => entry.data);
+            const failed = settled.filter((entry) => !entry.ok);
+
+            if (!successful.length) {
+                setCompareError(failed[0]?.message || 'Compare analysis failed for all players.');
+                setCompareResults([]);
+                return;
+            }
+
+            if (failed.length > 0) {
+                setCompareStatus(`${failed.length} player(s) could not be analyzed right now.`);
+            }
+
+            setCompareResults(successful);
+        } finally {
+            setCompareLoading(false);
+        }
+    }, [analysisFormat, comparePlayers, selectedVenue]);
 
     const copyCrossSummary = async () => {
         if (!crossAnalysis?.analysis) return;
@@ -168,6 +290,66 @@ const VenueIntelligence = () => {
         const link = document.createElement('a');
         link.href = url;
         link.download = 'venue-player-cross-analysis.json';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const copyCompareSummary = async () => {
+        if (!compareRows.length || !selectedVenue) return;
+
+        const lines = [
+            `Venue Compare Summary: ${selectedVenue.name} (${analysisFormat.toUpperCase()})`,
+            ...compareRows.map((row, index) => `${index + 1}. ${row.player} | Fit ${asFixed(row.fit)} | Fantasy ${asFixed(row.fantasy)} | Runs ${asFixed(row.projectedRuns)} | Wkts ${asFixed(row.projectedWickets, 2)} | Econ ${asFixed(row.projectedEconomy, 2)}`)
+        ];
+
+        try {
+            await navigator.clipboard.writeText(lines.join('\n'));
+            setCopyStatus('Compare summary copied to clipboard.');
+        } catch {
+            setCopyStatus('Clipboard permission unavailable.');
+        }
+    };
+
+    const exportCompareCsv = () => {
+        if (!compareRows.length) return;
+
+        const rows = [
+            ['Rank', 'Player', 'Country', 'Role', 'FitBand', 'FitScore', 'Confidence', 'ProjectedRuns', 'ProjectedWickets', 'ProjectedEconomy', 'FantasyPoints']
+        ];
+
+        compareRows.forEach((row, index) => {
+            rows.push([
+                index + 1,
+                row.player,
+                row.country,
+                row.role,
+                row.fitBand,
+                row.fit,
+                row.confidence,
+                row.projectedRuns,
+                row.projectedWickets,
+                row.projectedEconomy,
+                row.fantasy
+            ]);
+        });
+
+        const csv = rows
+            .map((row) => row.map((value) => {
+                const text = String(value ?? '');
+                if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+                    return `"${text.replace(/"/g, '""')}"`;
+                }
+                return text;
+            }).join(','))
+            .join('\n');
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'venue-player-compare.csv';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -209,6 +391,68 @@ const VenueIntelligence = () => {
     const { connected: sseConnected } = useSSE('/sync', sseHandlers);
 
     const analysis = crossAnalysis?.analysis || null;
+
+    const compareRows = useMemo(() => {
+        const rows = compareResults.map((entry) => {
+            const itemAnalysis = entry?.analysis || {};
+            const expected = itemAnalysis?.expected || {};
+
+            return {
+                id: String(entry?.player?.id || entry?.player?.apiId || entry?.player?.name || 'unknown-player'),
+                player: entry?.player?.name || 'Unknown',
+                country: entry?.player?.country || 'Unknown',
+                role: itemAnalysis?.roleHint || entry?.player?.role || 'Unknown',
+                fitBand: itemAnalysis?.fitBand || 'Balanced Fit',
+                fit: toNumber(itemAnalysis?.overallFitScore, 0),
+                confidence: toNumber(itemAnalysis?.confidence, 0),
+                projectedRuns: toNumber(expected?.battingRuns, 0),
+                projectedWickets: toNumber(expected?.wickets, 0),
+                projectedEconomy: toNumber(expected?.economy, 0),
+                fantasy: toNumber(expected?.fantasyPoints, 0),
+                recommendation: itemAnalysis?.recommendedRole || ''
+            };
+        });
+
+        const sorted = [...rows];
+        if (compareSortBy === 'fantasy') {
+            sorted.sort((a, b) => b.fantasy - a.fantasy || b.fit - a.fit);
+        } else if (compareSortBy === 'runs') {
+            sorted.sort((a, b) => b.projectedRuns - a.projectedRuns || b.fit - a.fit);
+        } else if (compareSortBy === 'wickets') {
+            sorted.sort((a, b) => b.projectedWickets - a.projectedWickets || b.fit - a.fit);
+        } else if (compareSortBy === 'economy') {
+            sorted.sort((a, b) => a.projectedEconomy - b.projectedEconomy || b.fit - a.fit);
+        } else {
+            sorted.sort((a, b) => b.fit - a.fit || b.fantasy - a.fantasy);
+        }
+
+        return sorted;
+    }, [compareResults, compareSortBy]);
+
+    const compareLeaders = useMemo(() => {
+        if (!compareRows.length) {
+            return {
+                bestFit: null,
+                bestFantasy: null,
+                bestBowling: null,
+                bestBatting: null
+            };
+        }
+
+        const bestFit = [...compareRows].sort((a, b) => b.fit - a.fit)[0];
+        const bestFantasy = [...compareRows].sort((a, b) => b.fantasy - a.fantasy)[0];
+        const bestBatting = [...compareRows].sort((a, b) => b.projectedRuns - a.projectedRuns)[0];
+        const bestBowling = [...compareRows]
+            .filter((row) => row.projectedWickets > 0 || row.projectedEconomy > 0)
+            .sort((a, b) => (b.projectedWickets - a.projectedWickets) || (a.projectedEconomy - b.projectedEconomy))[0] || null;
+
+        return {
+            bestFit,
+            bestFantasy,
+            bestBowling,
+            bestBatting
+        };
+    }, [compareRows]);
 
     const indexRows = useMemo(() => {
         if (!analysis?.indices) return [];
@@ -498,13 +742,22 @@ const VenueIntelligence = () => {
                         </div>
 
                         <div>
-                            <button
-                                onClick={runCrossAnalysis}
-                                disabled={analysisLoading || !selectedPlayer}
-                                className="w-full px-3 py-2.5 rounded-lg text-sm font-semibold bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400"
-                            >
-                                {analysisLoading ? 'Analyzing...' : 'Run Analysis'}
-                            </button>
+                            <div className="space-y-2">
+                                <button
+                                    onClick={runCrossAnalysis}
+                                    disabled={analysisLoading || !selectedPlayer}
+                                    className="w-full px-3 py-2.5 rounded-lg text-sm font-semibold bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400"
+                                >
+                                    {analysisLoading ? 'Analyzing...' : 'Run Analysis'}
+                                </button>
+                                <button
+                                    onClick={addSelectedToCompare}
+                                    disabled={!selectedPlayer || comparePlayers.length >= MAX_COMPARE_PLAYERS}
+                                    className="w-full px-3 py-2 rounded-lg text-xs font-semibold border border-violet-500/30 bg-violet-500/10 text-violet-200 disabled:bg-slate-700 disabled:text-slate-400 disabled:border-slate-600 hover:bg-violet-500/20"
+                                >
+                                    Add To Compare
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -515,6 +768,159 @@ const VenueIntelligence = () => {
                             <span className="text-slate-500">{selectedPlayer.country || 'Unknown'}</span>
                         </div>
                     )}
+
+                    <div className="mt-5 bg-black/20 border border-white/10 rounded-2xl p-4">
+                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-3">
+                            <div>
+                                <h4 className="text-sm font-bold text-white uppercase tracking-wider">Multi-Player Compare</h4>
+                                <p className="text-xs text-slate-400 mt-1">Build a shortlist and rank players at this venue in the selected format lens.</p>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <select
+                                    value={compareSortBy}
+                                    onChange={(event) => setCompareSortBy(event.target.value)}
+                                    className="px-3 py-2 rounded-lg bg-slate-800/80 border border-white/10 text-xs text-white"
+                                >
+                                    <option value="fit">Sort: Fit Score</option>
+                                    <option value="fantasy">Sort: Fantasy Pts</option>
+                                    <option value="runs">Sort: Runs</option>
+                                    <option value="wickets">Sort: Wickets</option>
+                                    <option value="economy">Sort: Economy</option>
+                                </select>
+                                <button
+                                    onClick={runCompareAnalysis}
+                                    disabled={compareLoading || comparePlayers.length === 0}
+                                    className="px-3 py-2 rounded-lg text-xs font-semibold bg-violet-600 hover:bg-violet-500 disabled:bg-slate-700 disabled:text-slate-400"
+                                >
+                                    {compareLoading ? 'Comparing...' : 'Run Compare'}
+                                </button>
+                                <button
+                                    onClick={copyCompareSummary}
+                                    disabled={compareRows.length === 0}
+                                    className="px-3 py-2 rounded-lg text-xs font-semibold border border-blue-500/30 bg-blue-500/10 text-blue-200 disabled:opacity-50"
+                                >
+                                    Copy Compare
+                                </button>
+                                <button
+                                    onClick={exportCompareCsv}
+                                    disabled={compareRows.length === 0}
+                                    className="px-3 py-2 rounded-lg text-xs font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 disabled:opacity-50"
+                                >
+                                    Export CSV
+                                </button>
+                                <button
+                                    onClick={clearCompare}
+                                    disabled={comparePlayers.length === 0 && compareRows.length === 0}
+                                    className="px-3 py-2 rounded-lg text-xs font-semibold border border-slate-500/30 bg-slate-500/10 text-slate-300 disabled:opacity-50"
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 mb-3">
+                            {comparePlayers.length === 0 ? (
+                                <span className="text-xs text-slate-500">No players added yet.</span>
+                            ) : comparePlayers.map((player) => (
+                                <span key={player.id} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-white/10 bg-slate-800/70 text-xs text-slate-200">
+                                    <span className="font-semibold">{player.name}</span>
+                                    <span className="text-slate-400">{player.country}</span>
+                                    <button
+                                        onClick={() => removeComparePlayer(player.id)}
+                                        className="text-rose-300 hover:text-rose-200"
+                                        aria-label={`Remove ${player.name}`}
+                                    >
+                                        x
+                                    </button>
+                                </span>
+                            ))}
+                        </div>
+
+                        {compareStatus && (
+                            <p className="text-xs text-amber-300 mb-2">{compareStatus}</p>
+                        )}
+
+                        {compareError && (
+                            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 mb-3">
+                                {compareError}
+                            </div>
+                        )}
+
+                        {compareLoading && (
+                            <div className="flex items-center gap-2 text-sm text-slate-400 mb-3">
+                                <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+                                Running venue compare model for shortlist...
+                            </div>
+                        )}
+
+                        {!compareLoading && compareRows.length > 0 && (
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-[10px] uppercase text-slate-500">Best Fit</p>
+                                        <p className="text-sm font-semibold text-emerald-300 mt-1">{compareLeaders.bestFit?.player || 'N/A'}</p>
+                                        <p className="text-xs text-slate-400">Score {asFixed(compareLeaders.bestFit?.fit)}</p>
+                                    </div>
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-[10px] uppercase text-slate-500">Fantasy Leader</p>
+                                        <p className="text-sm font-semibold text-violet-300 mt-1">{compareLeaders.bestFantasy?.player || 'N/A'}</p>
+                                        <p className="text-xs text-slate-400">{asFixed(compareLeaders.bestFantasy?.fantasy)} pts</p>
+                                    </div>
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-[10px] uppercase text-slate-500">Batting Upside</p>
+                                        <p className="text-sm font-semibold text-blue-300 mt-1">{compareLeaders.bestBatting?.player || 'N/A'}</p>
+                                        <p className="text-xs text-slate-400">{asFixed(compareLeaders.bestBatting?.projectedRuns)} runs</p>
+                                    </div>
+                                    <div className="bg-slate-900/70 border border-white/10 rounded-xl p-3">
+                                        <p className="text-[10px] uppercase text-slate-500">Bowling Edge</p>
+                                        <p className="text-sm font-semibold text-amber-300 mt-1">{compareLeaders.bestBowling?.player || 'N/A'}</p>
+                                        <p className="text-xs text-slate-400">{asFixed(compareLeaders.bestBowling?.projectedWickets, 2)} wkts, econ {asFixed(compareLeaders.bestBowling?.projectedEconomy, 2)}</p>
+                                    </div>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="text-slate-400 border-b border-white/10">
+                                                <th className="text-left py-2 pr-2 w-10">#</th>
+                                                <th className="text-left py-2 px-2">Player</th>
+                                                <th className="text-right py-2 px-2">Fit</th>
+                                                <th className="text-right py-2 px-2">Conf</th>
+                                                <th className="text-right py-2 px-2">Runs</th>
+                                                <th className="text-right py-2 px-2">Wkts</th>
+                                                <th className="text-right py-2 px-2">Econ</th>
+                                                <th className="text-right py-2 px-2">Fantasy</th>
+                                                <th className="text-left py-2 px-2">Fit Band</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {compareRows.map((row, index) => (
+                                                <tr key={row.id} className="border-b border-white/5 last:border-b-0">
+                                                    <td className="py-2 pr-2 text-slate-500">{index + 1}</td>
+                                                    <td className="py-2 px-2">
+                                                        <p className="text-slate-200 font-semibold">{row.player}</p>
+                                                        <p className="text-[11px] text-slate-500">{row.country} · {row.role}</p>
+                                                    </td>
+                                                    <td className="py-2 px-2 text-right font-mono text-blue-200">{asFixed(row.fit)}</td>
+                                                    <td className="py-2 px-2 text-right font-mono text-slate-200">{asFixed(row.confidence)}%</td>
+                                                    <td className="py-2 px-2 text-right font-mono text-indigo-200">{asFixed(row.projectedRuns)}</td>
+                                                    <td className="py-2 px-2 text-right font-mono text-emerald-200">{asFixed(row.projectedWickets, 2)}</td>
+                                                    <td className="py-2 px-2 text-right font-mono text-amber-200">{asFixed(row.projectedEconomy, 2)}</td>
+                                                    <td className="py-2 px-2 text-right font-mono text-violet-200">{asFixed(row.fantasy)}</td>
+                                                    <td className="py-2 px-2">
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full border uppercase tracking-wider font-semibold ${fitBandClass(row.fitBand)}`}>
+                                                            {row.fitBand}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
+                        )}
+                    </div>
 
                     {analysisError && (
                         <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
