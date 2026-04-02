@@ -6,7 +6,8 @@ const OVER_LIMITS = {
     t20: 20,
     odi: 50
 };
-const MODEL_VERSION = 'wp-v1.1';
+const MODEL_VERSION = 'wp-v1.2';
+const LOW_CONFIDENCE_THRESHOLD = 55;
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -238,12 +239,16 @@ const calculateWinProbability = async (match) => {
             strengthB
         });
 
+    const confidencePct = Number(core.confidence || 90);
+
     return {
         teamA: getShortTeamName(match?.teamInfo?.[0] || state.teamA, state.teamA),
         teamB: getShortTeamName(match?.teamInfo?.[1] || state.teamB, state.teamB),
         teamAWinPct: core.teamAWinPct,
         teamBWinPct: core.teamBWinPct,
-        confidence: core.confidence || 90,
+        confidence: confidencePct,
+        lowConfidence: confidencePct < LOW_CONFIDENCE_THRESHOLD,
+        confidenceThreshold: LOW_CONFIDENCE_THRESHOLD,
         context: core.context || core.reason || 'Model estimate',
         modelVersion: MODEL_VERSION,
         factors: {

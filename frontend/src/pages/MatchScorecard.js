@@ -283,6 +283,9 @@ const MatchScorecard = () => {
     const showWinProb = isLive && Number.isFinite(teamAProb) && Number.isFinite(teamBProb);
     const strengthEntries = Object.entries(winProbability?.factors?.teamStrength || {});
     const winProbGeneratedAtLabel = winProbability?.generatedAt ? new Date(winProbability.generatedAt).toLocaleTimeString() : 'Unknown';
+    const isLowConfidence = Boolean(
+        winProbability?.lowConfidence || (Number(winProbability?.confidence || 0) < Number(winProbability?.confidenceThreshold || 55))
+    );
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-slate-200">
@@ -373,6 +376,11 @@ const MatchScorecard = () => {
 
                     {showWinProb && (
                         <div className="mt-6 bg-black/20 border border-white/5 rounded-xl p-4">
+                            {isLowConfidence && (
+                                <p className="mb-2 inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                                    Low-confidence estimate
+                                </p>
+                            )}
                             <div className="flex items-center justify-between mb-2">
                                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Live Win Probability</h3>
                                 <span className="text-[10px] text-slate-500">Confidence {winProbability?.confidence || '-'}%</span>

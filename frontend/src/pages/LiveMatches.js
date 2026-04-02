@@ -32,6 +32,9 @@ const MatchCard = ({ match, onClick }) => {
     const hasWinProb = isLive && Number.isFinite(teamAProb) && Number.isFinite(teamBProb);
     const strengthEntries = Object.entries(winProb?.factors?.teamStrength || {});
     const generatedAtLabel = winProb?.generatedAt ? new Date(winProb.generatedAt).toLocaleTimeString() : 'Unknown';
+    const lowConfidence = Boolean(
+        winProb?.lowConfidence || (Number(winProb?.confidence || 0) < Number(winProb?.confidenceThreshold || 55))
+    );
 
     return (
         <div
@@ -98,6 +101,11 @@ const MatchCard = ({ match, onClick }) => {
                 </p>
                 {hasWinProb && (
                     <div className="mt-2">
+                        {lowConfidence && (
+                            <p className="mb-1 inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                                Low-confidence estimate
+                            </p>
+                        )}
                         <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
                             <span>{winProb.teamA} {teamAProb.toFixed(1)}%</span>
                             <span>{winProb.teamB} {teamBProb.toFixed(1)}%</span>
