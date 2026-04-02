@@ -63,6 +63,7 @@ const playerIdentifier = (player) => String(player?.apiId || player?._id || play
 const VenueIntelligence = () => {
     const [venues, setVenues] = useState([]);
     const [selectedVenue, setSelectedVenue] = useState(null);
+    const [venueQuery, setVenueQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [seeding, setSeeding] = useState(false);
     const [adminSeedKey, setAdminSeedKey] = useState('');
@@ -416,6 +417,25 @@ const VenueIntelligence = () => {
 
     const analysis = crossAnalysis?.analysis || null;
 
+    const filteredVenues = useMemo(() => {
+        const query = venueQuery.trim().toLowerCase();
+        if (!query) return venues;
+
+        return venues.filter((venue) => {
+            const haystack = [
+                venue?.name,
+                venue?.location,
+                venue?.city,
+                venue?.country
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+            return haystack.includes(query);
+        });
+    }, [venueQuery, venues]);
+
     const compareRows = useMemo(() => {
         const rows = compareResults.map((entry) => {
             const itemAnalysis = entry?.analysis || {};
@@ -581,22 +601,91 @@ const VenueIntelligence = () => {
                 </div>
 
                 {/* Venue Selector */}
-                <div className="surface-glass rounded-2xl p-4 mb-6 app-scroll">
-                <div className="flex gap-4 overflow-x-auto pb-1">
-                    {venues.map(venue => (
-                        <button
-                            key={venue.id}
-                            onClick={() => setSelectedVenue(venue)}
-                            className={`px-6 py-3 rounded-full whitespace-nowrap text-sm font-bold transition-all ${
-                                selectedVenue.id === venue.id
-                                ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-cyan-900/30'
-                                : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-transparent hover:border-white/15'
-                            }`}
-                        >
-                            {venue.name}
-                        </button>
-                    ))}
-                </div>
+                <div className="surface-glass rounded-2xl p-5 mb-6">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div>
+                            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Venue Selector</p>
+                            <h3 className="text-lg font-bold text-white">Quick Pick Stadium</h3>
+                            <p className="text-xs text-slate-400 mt-1">Use search and a compact dropdown to switch venues fast.</p>
+                        </div>
+                        <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/20 px-3 py-1.5 text-xs text-slate-300">
+                            <span className="text-slate-500">Selected</span>
+                            <span className="font-semibold text-white">{selectedVenue?.name || 'None'}</span>
+                        </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 xl:grid-cols-5 gap-4">
+                        <div className="xl:col-span-3 bg-slate-900/45 border border-white/10 rounded-2xl p-4 space-y-3">
+                            <div className="relative">
+                                <input
+                                    value={venueQuery}
+                                    onChange={(event) => setVenueQuery(event.target.value)}
+                                    placeholder="Filter by venue or city"
+                                    className="w-full rounded-xl border border-white/10 bg-slate-900/70 py-2.5 pl-10 pr-20 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                />
+                                <svg className="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                                {venueQuery && (
+                                    <button
+                                        onClick={() => setVenueQuery('')}
+                                        className="absolute right-2 top-2 rounded-md border border-white/15 bg-slate-800/80 px-2 py-1 text-[11px] font-semibold text-slate-300 hover:text-white"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
+
+                            <div>
+                                <p className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">Venue List</p>
+                                <select
+                                    value={String(selectedVenue?.id ?? '')}
+                                    onChange={(event) => {
+                                        const next = venues.find((venue) => String(venue.id) === event.target.value);
+                                        if (next) setSelectedVenue(next);
+                                    }}
+                                    disabled={filteredVenues.length === 0}
+                                    className="w-full rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:text-slate-500"
+                                >
+                                    {filteredVenues.length === 0 ? (
+                                        <option value="">No venues found</option>
+                                    ) : (
+                                        filteredVenues.map((venue) => (
+                                            <option key={venue.id} value={String(venue.id)}>
+                                                {venue.name} {venue.location ? `- ${venue.location}` : ''}
+                                            </option>
+                                        ))
+                                    )}
+                                </select>
+                            </div>
+
+                            <p className="text-xs text-slate-500">
+                                Showing {filteredVenues.length} of {venues.length} venues.
+                            </p>
+                        </div>
+
+                        <div className="xl:col-span-2 bg-black/20 border border-white/10 rounded-2xl p-4">
+                            <p className="text-[11px] uppercase tracking-wider text-slate-500">Selected Venue Snapshot</p>
+                            <p className="mt-1 text-base font-bold text-white">{selectedVenue?.name || 'No venue selected'}</p>
+                            <p className="text-xs text-slate-400 mt-1">{selectedVenue?.location || 'Unknown location'}</p>
+
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                <span className="rounded-full border border-white/10 bg-slate-800/80 px-2 py-1 text-[10px] font-semibold text-slate-300">
+                                    Capacity {selectedVenue?.capacity || 'N/A'}
+                                </span>
+                                <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-[10px] font-semibold text-rose-200">
+                                    Pace {asFixed(selectedVenue?.paceSpin?.pace, 0)}%
+                                </span>
+                                <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-[10px] font-semibold text-blue-200">
+                                    Spin {asFixed(selectedVenue?.paceSpin?.spin, 0)}%
+                                </span>
+                            </div>
+
+                            <p className="text-xs text-slate-500 mt-3 leading-relaxed">
+                                {selectedVenue?.description || 'Venue description unavailable.'}
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Grid Content */}
