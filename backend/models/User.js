@@ -31,8 +31,9 @@ const userSchema = new mongoose.Schema({
         default: false
     },
     verification: {
-        tokenHash: { type: String, default: null },
+        codeHash: { type: String, default: null },
         expiresAt: { type: Date, default: null },
+        lastSentAt: { type: Date, default: null },
         verifiedAt: { type: Date, default: null }
     },
     passwordChangedAt: {

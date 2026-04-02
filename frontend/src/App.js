@@ -13,6 +13,7 @@ import WatchlistDashboard from './pages/WatchlistDashboard';
 import SeriesLeaderboards from './pages/SeriesLeaderboards';
 import PlayerFormTracker from './pages/PlayerFormTracker';
 import Register from './pages/Register';
+import Login from './pages/Login';
 
 const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
   const location = useLocation();
@@ -153,6 +154,7 @@ function AppLayout() {
             <Route path="/player-form-tracker" element={<PlayerFormTracker />} />
             <Route path="/watchlist" element={<WatchlistDashboard />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/player/:apiId" element={<PlayerDetail />} />
             <Route path="/crickjudge" element={<CrickJudge />} />
             <Route path="/analytics" element={<AnalyticsHub />} />
