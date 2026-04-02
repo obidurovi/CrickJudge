@@ -58,12 +58,36 @@ const metricBandLabel = (value) => {
     return 'Low';
 };
 
+const buildVenueFallbackImage = (venueName = 'Cricket Stadium') => {
+        const safeName = String(venueName || 'Cricket Stadium')
+                .replace(/[&<>]/g, '')
+                .slice(0, 36);
+
+        const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="820" viewBox="0 0 1400 820">
+    <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#0f172a" />
+            <stop offset="100%" stop-color="#1d4ed8" />
+        </linearGradient>
+    </defs>
+    <rect width="1400" height="820" fill="url(#g)" />
+    <circle cx="220" cy="130" r="180" fill="#38bdf8" fill-opacity="0.18" />
+    <circle cx="1180" cy="720" r="210" fill="#22d3ee" fill-opacity="0.12" />
+    <text x="700" y="380" fill="#e2e8f0" font-size="58" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-weight="700">${safeName}</text>
+    <text x="700" y="440" fill="#94a3b8" font-size="28" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif">Stadium Image Unavailable</text>
+</svg>`;
+
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+};
+
 const playerIdentifier = (player) => String(player?.apiId || player?._id || player?.id || '').trim();
 
 const VenueIntelligence = () => {
     const [venues, setVenues] = useState([]);
     const [selectedVenue, setSelectedVenue] = useState(null);
     const [venueQuery, setVenueQuery] = useState('');
+    const [venueImageBroken, setVenueImageBroken] = useState(false);
     const [loading, setLoading] = useState(true);
     const [seeding, setSeeding] = useState(false);
     const [adminSeedKey, setAdminSeedKey] = useState('');
@@ -140,6 +164,10 @@ const VenueIntelligence = () => {
         setCompareError('');
         setCompareStatus('');
     }, [analysisFormat, selectedVenue?.id]);
+
+    useEffect(() => {
+        setVenueImageBroken(false);
+    }, [selectedVenue?.id]);
 
     const selectPlayer = (player) => {
         setSelectedPlayer(player);
@@ -517,6 +545,9 @@ const VenueIntelligence = () => {
     const directSamples = Array.isArray(analysis?.directVenueRecord?.samples)
         ? analysis.directVenueRecord.samples
         : [];
+    const venueHeroImage = (!venueImageBroken && selectedVenue?.image)
+        ? selectedVenue.image
+        : buildVenueFallbackImage(selectedVenue?.name || 'Cricket Stadium');
     const paceShare = Math.max(0, Math.min(100, toNumber(selectedVenue?.paceSpin?.pace, 0)));
     const spinShare = Math.max(0, Math.min(100, toNumber(selectedVenue?.paceSpin?.spin, 0)));
     const avgFirstInnings = toNumber(selectedVenue?.avgScores?.first, 0);
@@ -694,7 +725,12 @@ const VenueIntelligence = () => {
                     {/* Card 1: Stadium Info */}
                     <div className="surface-glass rounded-3xl p-1 overflow-hidden group">
                         <div className="relative h-48 rounded-t-3xl overflow-hidden">
-                            <img src={selectedVenue.image} alt={selectedVenue.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                            <img
+                                src={venueHeroImage}
+                                alt={selectedVenue.name}
+                                onError={() => setVenueImageBroken(true)}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                            />
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent"></div>
                             <div className="absolute bottom-4 left-4">
                                 <h3 className="text-xl font-bold text-white">{selectedVenue.name}</h3>
