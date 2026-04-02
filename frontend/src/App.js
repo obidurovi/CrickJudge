@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import CrickJudge from './pages/CrickJudge';
@@ -13,61 +13,82 @@ import WatchlistDashboard from './pages/WatchlistDashboard';
 import SeriesLeaderboards from './pages/SeriesLeaderboards';
 import PlayerFormTracker from './pages/PlayerFormTracker';
 
-const Sidebar = () => {
+const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
   const location = useLocation();
   const isActive = (path) => location.pathname === path ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-slate-800 hover:text-white';
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname, setMobileMenuOpen]);
 
   return (
-    <div className="w-64 bg-slate-900 h-screen fixed left-0 top-0 border-r border-slate-800 flex flex-col z-50">
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+    <>
+      <div
+        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${mobileMenuOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        onClick={closeMobileMenu}
+      ></div>
+
+      <div className={`w-72 bg-slate-900 h-screen fixed left-0 top-0 border-r border-slate-800 flex flex-col z-50 transform transition-transform duration-300 lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className="p-6 flex items-center justify-between gap-3 border-b border-slate-800">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+          </div>
+          <h1 className="text-xl font-bold text-white tracking-tight">CrickJudge</h1>
         </div>
-        <h1 className="text-xl font-bold text-white tracking-tight">CrickJudge</h1>
+
+        <button
+          onClick={closeMobileMenu}
+          className="lg:hidden text-slate-400 hover:text-white"
+          aria-label="Close navigation"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
       </div>
 
-      <nav className="flex-1 px-4 space-y-2 mt-4">
-        <Link to="/" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/')}`}>
+      <nav className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-2">
+        <Link to="/" onClick={closeMobileMenu} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/')}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
           Dashboard
         </Link>
-        <Link to="/live-matches" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/live-matches')}`}>
+        <Link to="/live-matches" onClick={closeMobileMenu} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/live-matches')}`}>
           <span className="relative flex items-center justify-center w-5 h-5">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 15.828a5 5 0 010-7.072m5.656 0a5 5 0 010 7.072M12 12h.01"></path></svg>
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
           </span>
           Live Matches
         </Link>
-        <Link to="/series-leaderboards" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/series-leaderboards')}`}>
+        <Link to="/series-leaderboards" onClick={closeMobileMenu} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/series-leaderboards')}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 17l6-6 4 4 8-8M14 7h7v7"></path></svg>
           Leaderboards
         </Link>
-        <Link to="/player-form-tracker" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/player-form-tracker')}`}>
+        <Link to="/player-form-tracker" onClick={closeMobileMenu} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/player-form-tracker')}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 19h16M6 15l3-3 3 2 4-5 2 2"></path></svg>
           Player Form
         </Link>
-        <Link to="/watchlist" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/watchlist')}`}>
+        <Link to="/watchlist" onClick={closeMobileMenu} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/watchlist')}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3l14 0l0 18l-7-5l-7 5z"></path></svg>
           Watchlist
         </Link>
-        <Link to="/crickjudge" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/crickjudge')}`}>
+        <Link to="/crickjudge" onClick={closeMobileMenu} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/crickjudge')}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
           CrickJudge
         </Link>
-        <Link to="/analytics" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/analytics')}`}>
+        <Link to="/analytics" onClick={closeMobileMenu} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/analytics')}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h18M3 12h18M3 21h18"></path></svg>
           Analytics Hub
         </Link>
-        <Link to="/simulator" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/simulator')}`}>
+        <Link to="/simulator" onClick={closeMobileMenu} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/simulator')}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 2v20m10-10H2"></path></svg>
           Match Simulator
         </Link>
-        <Link to="/teams" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/teams')}`}>
+        <Link to="/teams" onClick={closeMobileMenu} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/teams')}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01"></path></svg>
           Teams
         </Link>
         
-        <Link to="/venue-intelligence" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/venue-intelligence')}`}>
+        <Link to="/venue-intelligence" onClick={closeMobileMenu} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/venue-intelligence')}`}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -76,7 +97,7 @@ const Sidebar = () => {
           </Link>
       </nav>
 
-      <div className="p-4">
+      <div className="p-4 border-t border-slate-800">
         <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -85,16 +106,31 @@ const Sidebar = () => {
           <p className="text-xs text-slate-500">v2.4.0 Stable</p>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 
-function App() {
+function AppLayout() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
-    <Router>
       <div className="flex bg-slate-950 min-h-screen font-sans">
-        <Sidebar />
-        <div className="flex-1 ml-64">
+        <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
+        <div className="flex-1 lg:ml-72 min-w-0">
+          <div className="lg:hidden sticky top-0 z-30 h-16 px-4 border-b border-slate-800 bg-slate-900/90 backdrop-blur flex items-center justify-between">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-slate-700 text-slate-200 hover:text-white hover:border-slate-500"
+              aria-label="Open navigation"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+            <div className="text-sm font-bold text-white tracking-wide">CrickJudge</div>
+            <div className="w-10"></div>
+          </div>
+
+          <div className="min-h-screen">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/live-matches" element={<LiveMatches />} />
@@ -109,8 +145,16 @@ function App() {
             <Route path="/teams" element={<TeamsPage />} />
             <Route path="/venue-intelligence" element={<VenueIntelligence />} />
           </Routes>
+          </div>
         </div>
       </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppLayout />
     </Router>
   );
 }
