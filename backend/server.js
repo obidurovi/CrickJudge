@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const playerRoutes = require('./routes/playerRoutes');
+const authRoutes = require('./routes/authRoutes');
 const venueRoutes = require('./routes/venueRoutes');
 const matchRoutes = require('./routes/matchRoutes');
 const sseRoutes = require('./routes/sseRoutes');
@@ -20,6 +21,7 @@ let runtimeMode = getRuntimeMode();
 app.use(cors());
 app.use(express.json());
 
+app.use('/api/auth', authRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/venues', venueRoutes);
 app.use('/api/matches', matchRoutes);

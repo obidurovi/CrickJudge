@@ -12,6 +12,7 @@ import MatchScorecard from './pages/MatchScorecard';
 import WatchlistDashboard from './pages/WatchlistDashboard';
 import SeriesLeaderboards from './pages/SeriesLeaderboards';
 import PlayerFormTracker from './pages/PlayerFormTracker';
+import Register from './pages/Register';
 
 const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
   const location = useLocation();
@@ -77,6 +78,10 @@ const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
         <Link to="/watchlist" onClick={closeMobileMenu} className={navItemClass('/watchlist')}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3l14 0l0 18l-7-5l-7 5z"></path></svg>
           Watchlist
+        </Link>
+        <Link to="/register" onClick={closeMobileMenu} className={navItemClass('/register')}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3M5 5h7a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"></path></svg>
+          Create Account
         </Link>
 
         <p className="px-2 pt-4 pb-1 text-[10px] uppercase tracking-[0.18em] text-slate-500">Analysis Tools</p>
@@ -147,6 +152,7 @@ function AppLayout() {
             <Route path="/series-leaderboards" element={<SeriesLeaderboards />} />
             <Route path="/player-form-tracker" element={<PlayerFormTracker />} />
             <Route path="/watchlist" element={<WatchlistDashboard />} />
+            <Route path="/register" element={<Register />} />
             <Route path="/player/:apiId" element={<PlayerDetail />} />
             <Route path="/crickjudge" element={<CrickJudge />} />
             <Route path="/analytics" element={<AnalyticsHub />} />
