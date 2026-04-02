@@ -10,6 +10,7 @@ import LiveMatches from './pages/LiveMatches';
 import PlayerDetail from './pages/PlayerDetail';
 import MatchScorecard from './pages/MatchScorecard';
 import WatchlistDashboard from './pages/WatchlistDashboard';
+import SeriesLeaderboards from './pages/SeriesLeaderboards';
 
 const Sidebar = () => {
   const location = useLocation();
@@ -35,6 +36,10 @@ const Sidebar = () => {
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
           </span>
           Live Matches
+        </Link>
+        <Link to="/series-leaderboards" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/series-leaderboards')}`}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 17l6-6 4 4 8-8M14 7h7v7"></path></svg>
+          Leaderboards
         </Link>
         <Link to="/watchlist" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive('/watchlist')}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3l14 0l0 18l-7-5l-7 5z"></path></svg>
@@ -89,6 +94,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/live-matches" element={<LiveMatches />} />
             <Route path="/live-matches/:id" element={<MatchScorecard />} />
+            <Route path="/series-leaderboards" element={<SeriesLeaderboards />} />
             <Route path="/watchlist" element={<WatchlistDashboard />} />
             <Route path="/player/:apiId" element={<PlayerDetail />} />
             <Route path="/crickjudge" element={<CrickJudge />} />
